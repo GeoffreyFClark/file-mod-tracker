@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useCallback } from 'react';
-import { useBreadcrumbs } from './BreadcrumbContext';
+import { useBreadcrumbs } from '../contexts/BreadcrumbContext';
 
 interface NavigationContextType {
   navigateTo: (destination: string) => void;

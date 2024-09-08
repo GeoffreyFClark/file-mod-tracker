@@ -3,11 +3,11 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
 
 /* Breadcrumb Context */
-import { BreadcrumbProvider } from './components/BreadcrumbContext';
+import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 import Breadcrumbs from './components/Breadcrumbs';
 
 /* Navigation Context */
-import { NavigationProvider } from './components/NavigationContext';
+import { NavigationProvider } from './contexts/NavigationContext';
 
 /* Sidebar & Layout */
 import Sidebar from './components/Sidebar';
@@ -68,7 +68,7 @@ function App() {
           {/* Main content area */}
           <div className="flex-grow lg:pl-72">
             {/* Breadcrumbs bar */}
-            <div className="sticky top-0 bg-gray-100">
+            <div className="sticky top-0 bg-white">
               <Breadcrumbs />
             </div>
 

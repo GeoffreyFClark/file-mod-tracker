@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBreadcrumbs } from './BreadcrumbContext';
+import { useBreadcrumbs } from '../contexts/BreadcrumbContext';
 
 const Breadcrumbs: React.FC = () => {
   const { breadcrumbs } = useBreadcrumbs();
