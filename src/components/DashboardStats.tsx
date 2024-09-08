@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigation } from '../components/NavigationContext';
+import { useNavigation } from '../contexts/NavigationContext';
 
 type Stat = {
   name: string;
