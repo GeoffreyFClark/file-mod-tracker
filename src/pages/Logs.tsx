@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import LogsTable from '../components/LogsTable';
 
 const Logs: React.FC = () => {
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold">Logs Viewer Content</h2>
+    <div className="flex flex-col gap-4 p-4">
+      <LogsTable />
     </div>
   );
 };

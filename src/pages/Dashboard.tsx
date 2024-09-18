@@ -1,31 +1,34 @@
 import React from 'react';
+
 import DashboardStats from '../components/DashboardStats';
-import Investigate from '../components/Investigate';
+import { DashboardData } from '../data/dashboardData';
+
 import ChangesChart from '../components/ChangesChart';
+// import ChangesData from '../data/ChangesData';
 import DetectionsChart from '../components/DetectionsChart';
-import NewStatsCards from '../components/NewStatsCards';
+// import DetectionsData from '../data/DetectionsData';
+
+import Investigate from '../components/Investigate';
 
 const Dashboard: React.FC = () => {
   return (
     <>
       <div className="flex flex-col gap-4 p-4">
-        {/* Stats and other content */}
-        <DashboardStats />
 
-        {/* Full-width charts with gap */}
+        <DashboardStats stats={DashboardData} />
+
         <div className="flex flex-col gap-4">
-          {/* Ensure ChangesChart takes full width */}
+
           <div className="w-full">
             <ChangesChart />
           </div>
 
-          {/* Ensure DetectionsChart also takes full width */}
           <div className="w-full">
             <DetectionsChart />
           </div>
+
         </div>
 
-        {/* Additional content */}
         <Investigate />
       </div>
     </>

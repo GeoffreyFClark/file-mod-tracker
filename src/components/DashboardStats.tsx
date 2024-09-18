@@ -1,21 +1,19 @@
 import React from 'react';
 import { useNavigation } from '../contexts/NavigationContext';
 
-type Stat = {
+export type Stat = {
   name: string;
   stat: string;
   change: number;
   buttonText: string;
-  destination: string;  // New property for navigation destination
+  destination: string;
 };
 
-const stats: Stat[] = [
-  { name: 'Monitored Directories', stat: '15', change: 5.4, buttonText: 'View', destination: 'Directories' },
-  { name: 'Changes (Last 24h)', stat: '1234', change: -3.2, buttonText: 'Inspect', destination: 'Logs' },
-  { name: 'Detections (Last 24h)', stat: '20', change: 12.5, buttonText: 'Investigate', destination: 'Detections' },
-];
+interface DashboardStatsProps {
+  stats: Stat[];
+}
 
-const DashboardStats: React.FC = () => {
+const DashboardStats: React.FC<DashboardStatsProps> = ({ stats }) => {
   const { navigateTo } = useNavigation();
 
   const handleNavigation = (destination: string) => {

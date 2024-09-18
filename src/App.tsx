@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
-import { listen } from '@tauri-apps/api/event';
+import { useState } from 'react';
 
 /* Breadcrumb Context */
 import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
@@ -22,21 +20,6 @@ import Settings from './pages/Settings';
 
 function App() {
   const [selectedItem, setSelectedItem] = useState('Dashboard');
-  const [directories, setDirectories] = useState<string[]>([]);
-  const [fileChanges, setFileChanges] = useState<string[]>([]);
-
-  // Set up the event listener for file changes
-  useEffect(() => {
-    const setupListener = async () => {
-      const unlisten = await listen('file-change-event', (event) => {
-        setFileChanges((prev) => [...prev, event.payload as string]);
-      });
-  
-      return () => unlisten();
-    };
-  
-    setupListener();
-  }, []);  
 
   // Conditionally render content based on the selected sidebar item
   const renderContent = () => {
