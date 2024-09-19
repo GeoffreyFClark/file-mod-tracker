@@ -1,8 +1,10 @@
+#[allow(unused_imports)]
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use std::path::Path;
-use std::sync::mpsc::{channel, RecvError};
+use std::sync::mpsc::channel;
 use std::thread;
 use tauri::Manager;
+
 
 #[tauri::command]  // This attribute exposes the function to the Tauri runtime to allow it to be called from the front-end
 fn start_monitoring(directories: Vec<String>, app_handle: tauri::AppHandle) -> Result<(), String> {
@@ -88,4 +90,22 @@ fn main() {
         .invoke_handler(tauri::generate_handler![start_monitoring])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use notify::{EventKind, event::ModifyKind, event::DataChange, event::Event};
+
+    #[test]
+    fn test_format_event() {
+        let event = Event {
+            kind: EventKind::Modify(ModifyKind::Data(DataChange::Content)),
+            paths: vec![Path::new("/test/path").to_path_buf()],
+            attrs: Default::default(),
+        };
+
+        let formatted_event = format_event(&event).unwrap();
+        assert_eq!(formatted_event, "Modify(Data(Content)): /test/path");
+    }
 }

@@ -1,0 +1,50 @@
+name: Rust
+
+on: 
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.12.0'
+    - name : Install Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+    - name: Install Rust Cache
+      uses: Swatinem/rust-cache@v2
+    - name: C++ Build Tools
+      uses: microsoft/setup-msbuild@v1.0.2
+    - name: Install NPM dependencies
+      run: npm install
+    - name: Build
+      uses: tauri-apps/tauri-action@v0
+      with:
+        projectPath: ./src-tauri
+        distPath: ./dist
+        tauriScript: npm run tauri
+  
+  test: 
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name : Install Rust Toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+    - name: Install Rust Cache
+      uses: Swatinem/rust-cache@v2
+    - name: C++ Build Tools
+      uses: microsoft/setup-msbuild@v1.0.2
+    - name: TEST 1
+      run: cargo test --manifest-path ./src-tauri/Cargo.toml
+    
