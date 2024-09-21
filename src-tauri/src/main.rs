@@ -71,7 +71,10 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
                 ErrorKind::NotFound => "File Not Found".to_string(),
                 _ => format!("Error: {}", e),
             };
-            return Err(std::io::Error::new(ErrorKind::Other, error_message));
+            for key in &["Size", "Created", "Modified", "Accessed", "Readonly"] {
+                metadata_map.insert((*key).to_string(), error_message.clone());
+            }
+            return Ok(metadata_map);
         }
     };
 
@@ -134,7 +137,7 @@ fn format_event(event: &Event) -> NotifyResult<String> {
 
     if let Some(path) = event.paths.get(0) {
         let path_str = path.to_string_lossy().into_owned();
-        event_str.push_str(&format!("at {}", path_str));
+        event_str.push_str(&format!(": {}", path_str));
 
         // Fetch and append file metadata
         match get_file_metadata(&path_str) {
@@ -147,9 +150,7 @@ fn format_event(event: &Event) -> NotifyResult<String> {
                 event_str.push_str(&format!("\n{}", metadata_str));
             }
             Err(e) => {
-                event_str.clear();
-                let temp_error_str = format!("Error retrieving metadata for {}: {}", path_str, e);
-                event_str.push_str(&temp_error_str);
+                println!("Error retrieving metadata for {}: {}", path_str, e);
             }
         }
     }
