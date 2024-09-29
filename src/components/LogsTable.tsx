@@ -1,142 +1,223 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { DataTable } from 'simple-datatables';
+import {
+  handleExportCSV,
+  handleExportJSON,
+  handleExportTXT,
+  handleExportSQL,
+} from '../utils/exportFunctions';
+import { getTableConfig } from '../utils/tableConfig';
+import { TableDataRow } from '../utils/types';
+import { addRowsToDataTable } from '../utils/dataTableUtils';
 
-const LogsTable: React.FC = () => {
-  const [products] = useState([
-    { name: 'Apple iMac 27"', category: 'PC', brand: 'Apple', description: '300', price: '$2999' },
-    { name: 'Apple iMac 20"', category: 'PC', brand: 'Apple', description: '200', price: '$1499' },
-    { name: 'Apple iPhone 14', category: 'Phone', brand: 'Apple', description: '1237', price: '$999' },
-    { name: 'Apple iPad Air', category: 'Tablet', brand: 'Apple', description: '4578', price: '$1199' },
-    { name: 'Xbox Series S', category: 'Gaming/Console', brand: 'Microsoft', description: '56', price: '$299' },
-    { name: 'PlayStation 5', category: 'Gaming/Console', brand: 'Sony', description: '78', price: '$799' },
-    { name: 'Xbox Series X', category: 'Gaming/Console', brand: 'Microsoft', description: '200', price: '$699' },
-    { name: 'Apple Watch SE', category: 'Watch', brand: 'Apple', description: '657', price: '$399' },
-    { name: 'NIKON D850', category: 'Photo', brand: 'Nikon', description: '465', price: '$599' },
-    { name: 'Monitor BenQ EX2710Q', category: 'TV/Monitor', brand: 'BenQ', description: '354', price: '$499' },
-  ]);
+import SortIcon from './icons/SortIcon';
+
+import { Button, Modal } from 'flowbite-react';
+import ModalTable from './ModalTable';
+import ExportButton from './ExportButton';
+import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
+
+interface LogsTableProps {
+  initialData: TableDataRow[];
+}
+
+const LogsTable = forwardRef<{ updateData: (newData: TableDataRow[]) => void }, LogsTableProps>(({ initialData }, ref) => {
+  console.log('LogsTable component rendering');
+  const uniqueIdMain = useMemo(() => 'Main', []);
+  const uniqueIdModal = useMemo(() => 'Modal', []);
+
+  const tableRef = useRef<HTMLTableElement>(null);
+  const dataTableRef = useRef<DataTable | null>(null);
+
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [selectedEntries, setSelectedEntries] = useState<TableDataRow['entries']>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [data, setData] = useState(initialData);
+
+  const initializeDataTable = useCallback(() => {
+    console.log('Initializing DataTable with data:', data);
+    const exportTableId = `export-table${uniqueIdMain}`;
+
+    if (dataTableRef.current) {
+      console.log('DataTable already initialized');
+      return;
+    }
+
+    if (tableRef.current) {
+      console.log('Creating new DataTable');
+      dataTableRef.current = new DataTable(`#${exportTableId}`, getTableConfig(uniqueIdMain));
+
+      dataTableRef.current.on('datatable.init', function () {
+        console.log('DataTable initialized');
+        const tbody = document.getElementById(exportTableId)?.querySelector('tbody');
+        if (tbody) {
+          tbody.addEventListener('click', function (event) {
+            const target = event.target as HTMLElement;
+            if (target && target.tagName === 'BUTTON') {
+              const tr = target.closest('tr');
+              if (!tr) return;
+              const path = tr.getAttribute('data-path');
+              if (!path) return;
+              const rowData = data.find((row) => row.Path === path);
+              if (rowData) {
+                handleRowClick(rowData.entries);
+              }
+            }
+          });
+        }
+        const exportButtonContainer = document.getElementById(`exportButtonContainer${uniqueIdMain}`);
+        if (exportButtonContainer) {
+          const root = createRoot(exportButtonContainer);
+          root.render(
+            <ExportButton
+              dataTableRef={dataTableRef}
+              handleExportCSV={handleExportCSV}
+              handleExportJSON={handleExportJSON}
+              handleExportTXT={handleExportTXT}
+              handleExportSQL={handleExportSQL}
+            />
+          );
+        }
+        setIsInitialized(true);
+      });
+    }
+  }, [data, uniqueIdMain]);
+
+  useEffect(() => {
+    initializeDataTable();
+
+    return () => {
+      if (dataTableRef.current) {
+        console.log('Cleaning up DataTable');
+        dataTableRef.current.destroy();
+      }
+      const exportButtonContainer = document.getElementById(`exportButtonContainer${uniqueIdMain}`);
+      if (exportButtonContainer) {
+        ReactDOM.unmountComponentAtNode(exportButtonContainer);
+      }
+    };
+  }, [initializeDataTable, uniqueIdMain]);
+
+  const updateData = useCallback((newData: TableDataRow[]) => {
+    console.log('Updating data in LogsTable');
+    if (isInitialized && dataTableRef.current) {
+      const newRows = newData
+        .filter(row => !data.some(existingRow => existingRow.Path === row.Path))
+        .map(row => ({
+          cells: [
+            { data: row.Path },
+            { data: row.Changes > 1 ? '*' : row.PID, text: row.Changes > 1 ? '*' : row.PID.toString() },
+            { data: row.Changes > 1 ? '*' : row.Type },
+            { data: row.Timestamp },
+            { data: `<button class="inline-flex items-center rounded-md bg-indigo-500 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">View ${row.Changes}</button>` },
+          ]
+        }));
+      addRowsToDataTable(dataTableRef.current, newRows);
+    }
+    setData(newData);
+  }, [isInitialized, data]);
+
+  useImperativeHandle(ref, () => ({
+    updateData
+  }));
+
+  const handleRowClick = useCallback((entries: TableDataRow['entries']) => {
+    if (entries && entries.length > 0) {
+      setSelectedEntries(entries);
+      setModalOpen(true);
+      console.log(`Detailed entries for ${entries[0]?.Path}:`, entries);
+    } else {
+      console.log('No entries to display in modal.');
+    }
+  }, []);
+
+  const closeModal = useCallback(() => setModalOpen(false), []);
 
   return (
-    <section className="bg-gray-50 dark:bg-gray-900 p-3 sm:p-5">
-      <div className="mx-auto max-w-screen-xl px-4 lg:px-12">
-        <div className="bg-white dark:bg-gray-800 relative shadow-md sm:rounded-lg overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4">
-            <div className="w-full md:w-1/2">
-              <form className="flex items-center">
-                <label htmlFor="simple-search" className="sr-only">Search</label>
-                <div className="relative w-full">
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <svg aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <input type="text" id="simple-search" className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 p-2 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500" placeholder="Search" required />
-                </div>
-              </form>
-            </div>
-            <div className="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
-              <button type="button" className="flex items-center justify-center text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-primary-600 dark:hover:bg-primary-700 focus:outline-none dark:focus:ring-primary-800">
-                <svg className="h-3.5 w-3.5 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                  <path clipRule="evenodd" fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
-                </svg>
-                Add product
-              </button>
-              <div className="flex items-center space-x-3 w-full md:w-auto">
-                <button id="actionsDropdownButton" data-dropdown-toggle="actionsDropdown" className="w-full md:w-auto flex items-center justify-center py-2 px-4 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" type="button">
-                  <svg className="-ml-1 mr-1.5 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path clipRule="evenodd" fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                  </svg>
-                  Actions
+    <div className='p-5 rounded-lg shadow bg-white dark:bg-gray-900 antialiased'>
+      <table id={`export-table${uniqueIdMain}`} ref={tableRef}>
+        <thead>
+          <tr>
+            <th>
+              <span className='flex items-center'>
+                Path
+                <SortIcon />
+              </span>
+            </th>
+            <th data-type='number'>
+              <span className='flex items-center'>
+                PID
+                <SortIcon />
+              </span>
+            </th>
+            <th>
+              <span className='flex items-center'>
+                Details
+                <SortIcon />
+              </span>
+            </th>
+            <th>
+              <span className='flex items-center'>
+                Timestamp
+                <SortIcon />
+              </span>
+            </th>
+            <th>
+              <span className='flex items-center'>
+                Changes
+                <SortIcon />
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, index) => (
+            <tr
+              key={`${row.Path}-${row.Timestamp}-${index}`}
+              data-path={row.Path}
+              className='hover:bg-gray-50 dark:hover:bg-gray-800'
+            >
+              <td className='font-medium text-gray-900 whitespace-nowrap dark:text-white'>
+                {row.Path}
+              </td>
+              <td>{row.Changes > 1 ? '*' : row.PID}</td>
+              <td>{row.Changes > 1 ? '*' : row.Type}</td>
+              <td>{row.Timestamp}</td>
+              <td>
+                <button 
+                  className="inline-flex items-center rounded-md bg-indigo-500 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
+                >
+                  View {row.Changes}
                 </button>
-                <button id="filterDropdownButton" data-dropdown-toggle="filterDropdown" className="w-full md:w-auto flex items-center justify-center py-2 px-4 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-primary-700 focus:z-10 focus:ring-4 focus:ring-gray-200 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" type="button">
-                  <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" className="h-4 w-4 mr-2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
-                  </svg>
-                  Filter
-                  <svg className="-mr-1 ml-1.5 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path clipRule="evenodd" fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                <tr>
-                  <th scope="col" className="px-4 py-3">Product name</th>
-                  <th scope="col" className="px-4 py-3">Category</th>
-                  <th scope="col" className="px-4 py-3">Brand</th>
-                  <th scope="col" className="px-4 py-3">Description</th>
-                  <th scope="col" className="px-4 py-3">Price</th>
-                  <th scope="col" className="px-4 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product, index) => (
-                  <tr key={index} className="border-b dark:border-gray-700">
-                    <th scope="row" className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap dark:text-white">{product.name}</th>
-                    <td className="px-4 py-3">{product.category}</td>
-                    <td className="px-4 py-3">{product.brand}</td>
-                    <td className="px-4 py-3">{product.description}</td>
-                    <td className="px-4 py-3">{product.price}</td>
-                    <td className="px-4 py-3 flex items-center justify-end">
-                      <button id={`${product.name.toLowerCase().replace(/\s+/g, '-')}-dropdown-button`} data-dropdown-toggle={`${product.name.toLowerCase().replace(/\s+/g, '-')}-dropdown`} className="inline-flex items-center p-0.5 text-sm font-medium text-center text-gray-500 hover:text-gray-800 rounded-lg focus:outline-none dark:text-gray-400 dark:hover:text-gray-100" type="button">
-                        <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <nav className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-3 md:space-y-0 p-4" aria-label="Table navigation">
-            <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-              Showing
-              <span className="font-semibold text-gray-900 dark:text-white">1-10</span>
-              of
-              <span className="font-semibold text-gray-900 dark:text-white">1000</span>
-            </span>
-            <ul className="inline-flex items-stretch -space-x-px">
-              <li>
-                <a href="#" className="flex items-center justify-center h-full py-1.5 px-3 ml-0 text-gray-500 bg-white rounded-l-lg border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
-                  <span className="sr-only">Previous</span>
-                  <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                </a>
-              </li>
-              <li>
-                <a href="#" className="flex items-center justify-center text-sm py-2 px-3 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">1</a>
-              </li>
-              <li>
-                <a href="#" className="flex items-center justify-center text-sm py-2 px-3 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">2</a>
-              </li>
-              <li>
-                <a href="#" aria-current="page" className="flex items-center justify-center text-sm z-10 py-2 px-3 leading-tight text-primary-600 bg-primary-50 border border-primary-300 hover:bg-primary-100 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-700 dark:text-white">3</a>
-              </li>
-              <li>
-                <a href="#" className="flex items-center justify-center text-sm py-2 px-3 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">...</a>
-              </li>
-              <li>
-              <a href="#" className="flex items-center justify-center text-sm py-2 px-3 leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">100</a>
-              </li>
-              <li>
-                <a href="#" className="flex items-center justify-center h-full py-1.5 px-3 leading-tight text-gray-500 bg-white rounded-r-lg border border-gray-300 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">
-                  <span className="sr-only">Next</span>
-                  <svg className="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                </a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-    </section>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <Modal
+        dismissible
+        show={isModalOpen}
+        onClose={closeModal}
+        size='6xl'
+        className='modal-background'
+      >
+        <Modal.Header>
+          Changes made for file {selectedEntries[0]?.Path}
+        </Modal.Header>
+        <Modal.Body>
+          <ModalTable
+            selectedEntries={selectedEntries}
+            uniqueIdModal={uniqueIdModal}
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button onClick={closeModal}>Close</Button>
+        </Modal.Footer>
+      </Modal>
+    </div>
   );
-};
+});
 
 export default LogsTable;
