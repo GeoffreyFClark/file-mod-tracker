@@ -263,7 +263,7 @@ function App() {
                         {Object.entries(fileChanges[dir] || {}).map(([change, count], index) => (
                           <TableRow key={index}>
                             <TableCell sx={{ color: '#00ff00' }}>{count}</TableCell>
-                            <Tooltip title={renderMetadataTooltip(dir, change)} placement="right" arrow>
+                            <Tooltip title={renderMetadataTooltip(dir, change)}>
                               <TableCell sx={{ color: '#00ff00' }}>{change}</TableCell>
                             </Tooltip>
                           </TableRow>

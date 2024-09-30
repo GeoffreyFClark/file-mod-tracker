@@ -1,0 +1,6 @@
+Cargo.lock linguist-vendored
+package-lock.json linguist-vendored
+src/components/*.tsx linguist-vendored
+src/components/*.ts linguist-vendored
+src/pages/*.tsx linguist-vendored
+src/pages/*.ts linguist-vendored
