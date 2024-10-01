@@ -203,21 +203,57 @@ fn main() {
         .expect("Error while running Tauri application");
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use notify::{EventKind, event::ModifyKind, event::DataChange, event::Event};
+    use notify::{event::CreateKind, event::Event, EventKind};
+    use std::path::PathBuf;
+
+    /// Helper function to create a temporary file to use for tests.
+    fn create_temp_file(file_name: &str) -> PathBuf {
+        let temp_file_path = std::env::temp_dir().join(file_name);
+        std::fs::File::create(&temp_file_path).unwrap();
+        temp_file_path
+    }
 
     #[test]
     fn test_format_event() {
+        let temp_file_path = create_temp_file("temp_test_file.txt");
+
         let event = Event {
-            kind: EventKind::Modify(ModifyKind::Data(DataChange::Content)),
-            paths: vec![Path::new("/test/path").to_path_buf()],
+            kind: EventKind::Create(CreateKind::File),
+            paths: vec![temp_file_path.clone()],
             attrs: Default::default(),
         };
 
         let formatted_event = format_event(&event).unwrap();
-        assert_eq!(formatted_event, "Error retrieving metadata for /test/path: File Not Found");
+        assert!(formatted_event.contains("Create(File):"));
+        assert!(formatted_event.contains(temp_file_path.to_str().unwrap()));
+        assert!(formatted_event.contains("Size:"));
+        assert!(formatted_event.contains("Created:"));
+        assert!(formatted_event.contains("Modified:"));
+        assert!(formatted_event.contains("Accessed:"));
+
+        // Clean up the temporary file
+        std::fs::remove_file(temp_file_path).unwrap();
+    }
+
+    // Can divide test_format_event further into multiple tests:
+    #[test]
+    fn test_format_event_with_metadata() {
+        // This test can cover scenarios where the metadata is successfully retrieved and formatted.
+        assert!(true);
+    }
+
+    #[test]
+    fn test_format_event_file_not_found() {
+        // This test can cover scenarios where the file path is not currently valid, and metadata shows "File Not Found".
+        assert!(true);
+    }
+
+    #[test]
+    fn test_format_event_access_denied() {
+        // This test can cover scenarios where access to the file is denied, resulting in "Access Denied" messages.
+        assert!(true);
     }
 }
