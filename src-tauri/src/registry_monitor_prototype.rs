@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
-use winreg::enums::{HKEY_CURRENT_USER};  // Only monitoring one key for now
+use winreg::enums::HKEY_CURRENT_USER; // Only monitoring one key for now
 use winreg::RegKey;
 
 // Function to monitor a specific registry key and log changes (incomplete)
@@ -18,8 +18,17 @@ fn monitor_registry_key(
 
     let mut values_cache: HashMap<String, Vec<u8>> = HashMap::new();
 
-    // Placeholder for initializing the initial snapshot of registry values
-    // TODO: Implement logic to enumerate and cache initial registry values
+    // Initial snapshot of registry values
+    for value_result in h_key.enum_values() {
+        match value_result {
+            Ok((name, value)) => {
+                values_cache.insert(name.clone(), value.bytes);
+            }
+            Err(e) => {
+                error!("Failed to enumerate values for '{}': {:?}", key_name, e);
+            }
+        }
+    }
 
     while running.load(Ordering::SeqCst) {
         // Placeholder: Set up registry key change notification
