@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigation } from './NavigationContext';
+import { useNavigation } from '../contexts/NavigationContext';
 
 const ExampleComponent: React.FC = () => {
   const { navigateTo } = useNavigation();

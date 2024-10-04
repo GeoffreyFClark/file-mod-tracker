@@ -17,6 +17,11 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  overflow: scroll !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+
 }
 
 @font-face {
@@ -64,4 +69,26 @@
 .dashboardAction.selected:hover {
   color: inherit !important;
   /* This ensures the hover effect doesn't change the color */
+}
+
+
+.modal-background {
+  --tw-bg-opacity: 0.5 !important;
+}
+
+
+@media (min-width: 1536px) {
+  .container {
+      max-width: 100% !important;
+  }
+}
+
+body.hidden-scrollbar {
+  overflow: scroll !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+body.hidden-scrollbar::-webkit-scrollbar {
+  display: none !important; /* Safari and Chrome */
 }
