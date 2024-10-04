@@ -4,7 +4,13 @@ import DirectoryCard from '../components/DirectoryCard';
 
 const Settings: React.FC = () => {
   const [directoryPath, setDirectoryPath] = useState<string>('');
-  const { addDirectoryByPath, removeDirectory, startMonitoring, directories } = useFileMonitorContext();
+  const { 
+    addDirectoryByPath, 
+    toggleDirectoryState,
+    deleteDirectory,
+    startMonitoring, 
+    directories,
+  } = useFileMonitorContext();
 
   const handleAddDirectory = async () => {
     const trimmedPath = directoryPath.trim();
@@ -14,8 +20,12 @@ const Settings: React.FC = () => {
     }
   };
 
-  const handleStartMonitoring = async () => {
-    await startMonitoring();
+  const handleToggleMonitoring = async (directory: string) => {
+    await toggleDirectoryState(directory);
+  };
+
+  const handleDeleteDirectory = async (directory: string) => {
+    await deleteDirectory(directory);
   };
 
   return (
@@ -53,15 +63,17 @@ const Settings: React.FC = () => {
           directories.map((directory) => (
             <DirectoryCard
               key={directory.path}
-              directory={directory}
-              onAdd={() => addDirectoryByPath(directory.path)}
-              onRemove={() => removeDirectory(directory.path)}
+              directory={{
+                path: directory.path,
+                isMonitored: directory.isEnabled
+              }}
+              onAdd={() => handleToggleMonitoring(directory.path)}
+              onRemove={() => handleToggleMonitoring(directory.path)}
+              onDelete={() => handleDeleteDirectory(directory.path)}
             />
           ))
         )}
       </div>
-
-
     </div>
   );
 };

@@ -1,8 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileMonitor, FileMonitorState } from './monitor';
 import { convertMonitorStateToTableData } from '../utils/convertMonitorStateToTableData';
-import { TableDataRow } from '../utils/types';
-import { invoke } from '@tauri-apps/api/tauri';
 
 const useFileMonitor = () => {
   const [monitorState, setMonitorState] = useState<FileMonitorState>({
@@ -47,12 +45,20 @@ const useFileMonitor = () => {
     }
   }, []);
 
+  const getWatchedDirectories = useCallback(async (): Promise<string[]> => {
+    if (fileMonitorRef.current) {
+      return fileMonitorRef.current.getWatchedDirectories();
+    }
+    return [];
+  }, []);
+
   return {
     tableData,
     addDirectory,
     addDirectoryByPath,
-    removeDirectory, // Add this new function to the returned object
+    removeDirectory,
     startMonitoring,
+    getWatchedDirectories,
     directories: monitorState.directories,
   };
 };

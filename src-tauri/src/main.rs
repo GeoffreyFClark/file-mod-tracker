@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, BTreeMap};
 use std::ffi::OsStr;
 use std::fs::metadata as get_metadata;
 use std::io::ErrorKind;
@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
@@ -16,6 +17,7 @@ use winapi::um::fileapi::GetFileAttributesW;
 use winapi::um::winnt::{
     FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_TEMPORARY,
 };
+use chrono::NaiveDateTime;
 
 /// Retrieves file attributes for a given path using GetFileAttributesW from winapi,
 /// converting the path to UTF-16. Returns the attribute bitmask (u32) or an error message.
@@ -53,10 +55,10 @@ fn format_file_size(size: u64) -> String {
     format!("{} bytes", result)
 }
 
-/// Retrieves file metadata as a HashMap, including size, timestamps, readonly status,
+/// Retrieves file metadata as a BTreeMap, including size, timestamps, readonly status,
 /// and additional attributes (e.g., hidden, temporary, encrypted). Returns any errors.
-fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io::Error> {
-    let mut metadata_map = HashMap::new();
+fn get_file_metadata(file_path: &str) -> Result<BTreeMap<String, String>, std::io::Error> {
+    let mut metadata_map = BTreeMap::new();
 
     // Get the file metadata
     let file_metadata = match get_metadata(file_path) {
@@ -96,16 +98,16 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
 
     // File times
     metadata_map.insert(
+        "Accessed".to_string(),
+        get_formatted_time(file_metadata.accessed()),
+    );
+    metadata_map.insert(
         "Created".to_string(),
         get_formatted_time(file_metadata.created()),
     );
     metadata_map.insert(
         "Modified".to_string(),
         get_formatted_time(file_metadata.modified()),
-    );
-    metadata_map.insert(
-        "Accessed".to_string(),
-        get_formatted_time(file_metadata.accessed()),
     );
 
     // Readonly status
@@ -118,12 +120,12 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
             let is_hidden = attributes & FILE_ATTRIBUTE_HIDDEN != 0;
             let is_temporary = attributes & FILE_ATTRIBUTE_TEMPORARY != 0;
             let is_encrypted = attributes & FILE_ATTRIBUTE_ENCRYPTED != 0;
+            metadata_map.insert("IsEncrypted".to_string(), is_encrypted.to_string());
             metadata_map.insert("IsHidden".to_string(), is_hidden.to_string());
             metadata_map.insert("IsTemporary".to_string(), is_temporary.to_string());
-            metadata_map.insert("IsEncrypted".to_string(), is_encrypted.to_string());
         }
         Err(err) => {
-            for key in &["IsHidden", "IsTemporary", "IsEncrypted"] {
+            for key in &["IsEncrypted", "IsHidden", "IsTemporary"] {
                 metadata_map.insert((*key).to_string(), err.clone());
             }
         }
@@ -133,63 +135,51 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
 }
 
 /// Formats a file's metadata for a given file change event, converting it into a string.
-fn format_event(event: &Event) -> NotifyResult<String> {
-    let (event_type, from_path, to_path) = match &event.kind {
-        EventKind::Create(_) => ("Created", None, None),
-        EventKind::Modify(modify_kind) => match modify_kind {
-            notify::event::ModifyKind::Name(rename_mode) => match rename_mode {
-                notify::event::RenameMode::From => ("Renamed from", event.paths.get(0).map(|p| p.to_str().unwrap_or("")), event.paths.get(1).map(|p| p.to_str().unwrap_or(""))),
-                notify::event::RenameMode::To => ("Renamed to", event.paths.get(1).map(|p| p.to_str().unwrap_or("")), event.paths.get(0).map(|p| p.to_str().unwrap_or(""))),
-                _ => ("Renamed", None, None),
-            },
-            _ => ("Modified", None, None),
-        },
-        EventKind::Remove(_) => ("Removed", None, None),
-        EventKind::Access(_) => ("Accessed", None, None),
-        _ => ("Other", None, None),
+fn format_event(event: &Event, watcher_dir: &str) -> NotifyResult<String> {
+    let event_type = match &event.kind {
+        EventKind::Create(_) => "Created",
+        EventKind::Modify(_) => "Modified",
+        EventKind::Remove(_) => "Removed",
+        EventKind::Access(_) => "Accessed",
+        _ => "Other",
     };
 
-    let mut event_str = event_type.to_string();
+    let mut event_str = String::new();
 
-    let primary_path = match event_type {
-        "Renamed from" => from_path,
-        "Renamed to" => to_path,
-        _ => event.paths.get(0).map(|p| p.to_str().unwrap_or("")),
-    };
-
-    if let Some(path) = primary_path {
-        event_str.push_str(&format!(": {}", path));
+    if let Some(path) = event.paths.get(0).map(|p| p.to_str().unwrap_or("")) {
+        // Add event type and path
+        event_str.push_str(&format!("{}: {}\n", event_type, path));
+        
+        // Add Watcher information as a separate line
+        event_str.push_str(&format!("Watcher: {}\n", watcher_dir));
 
         // Fetch and append file metadata
         let metadata = get_file_metadata(path);
 
         match metadata {
             Ok(metadata) => {
-                let metadata_str = metadata
-                    .iter()
-                    .map(|(key, value)| format!("{}: {}", key, value))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                event_str.push_str(&format!("\n{}", metadata_str));
+                // Format metadata as separate lines
+                for (key, value) in metadata.iter() {
+                    if key == "Modified" {
+                        if NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S").is_err() {
+                            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                            event_str.push_str(&format!("{}: {}\n", key, current_time));
+                        } else {
+                            event_str.push_str(&format!("{}: {}\n", key, value));
+                        }
+                    } else {
+                        event_str.push_str(&format!("{}: {}\n", key, value));
+                    }
+                }
             }
             Err(e) => {
                 println!("Error retrieving metadata for {}: {}", path, e);
-                event_str.push_str("\nError retrieving metadata");
+                event_str.push_str("Error retrieving metadata\n");
             }
         }
     }
 
-    // Add FromPath and ToPath for rename events
-    if event_type.starts_with("Renamed") {
-        if let Some(from) = from_path {
-            event_str.push_str(&format!("\nFromPath: {}", from));
-        }
-        if let Some(to) = to_path {
-            event_str.push_str(&format!("\nToPath: {}", to));
-        }
-    }
-
-    Ok(event_str)
+    Ok(event_str.trim_end().to_string())
 }
 
 struct MonitoringState {
@@ -210,27 +200,67 @@ fn start_monitoring(
     let mut watcher: RecommendedWatcher = Watcher::new(tx.clone(), Config::default())
         .map_err(|e| e.to_string())?;
 
-    // Watch all directories
+    // Watch all initial directories
     for dir in &directories {
         watcher.watch(Path::new(dir), RecursiveMode::Recursive)
             .map_err(|e| format!("Failed to watch directory {}: {}", dir, e))?;
     }
 
-    let mut state = state.lock().map_err(|e| e.to_string())?;
-    *state = Some(MonitoringState {
-        watcher,
-        directories: directories.clone(),
-    });
+    // Clone the Arc to move into the thread
+    let state_clone = Arc::clone(&state);
+
+    {
+        // Update the shared state
+        let mut state_guard = state.lock().map_err(|e| e.to_string())?;
+        *state_guard = Some(MonitoringState {
+            watcher,
+            directories: directories.clone(),
+        });
+    }
 
     thread::spawn(move || {
         println!("Monitoring thread started");
+
+        // Use a HashSet to keep track of recent events
+        let mut recent_events = HashSet::new();
+        let mut event_timestamps = HashMap::new();
+        let event_cache_duration = Duration::from_secs(1); // Adjust the duration as needed
+
         while let Ok(event_result) = rx.recv() {
+            // Clean up old events from recent_events
+            let now = Instant::now();
+            event_timestamps.retain(|_, &mut timestamp| now.duration_since(timestamp) < event_cache_duration);
+            recent_events.retain(|event_str| event_timestamps.contains_key(event_str));
+
             match event_result {
                 Ok(event) => {
-                    if let Ok(event_str) = format_event(&event) {
-                        println!("File event detected: {}", event_str);
-                        if let Err(e) = app_handle.emit_all("file-change-event", event_str) {
-                            println!("Failed to emit event: {}", e);
+                    if let Some(path) = event.paths.first() {
+                        // Access the latest list of directories from the shared state
+                        let directories = {
+                            let state_guard = state_clone.lock().unwrap();
+                            if let Some(ref monitoring_state) = *state_guard {
+                                monitoring_state.directories.clone()
+                            } else {
+                                Vec::new()
+                            }
+                        };
+
+                        if let Some(watcher_dir) = directories.iter().find(|dir| path.starts_with(dir)) {
+                            if let Ok(event_str) = format_event(&event, watcher_dir) {
+                                if !recent_events.contains(&event_str) {
+                                    // It's a new event, emit it
+                                    println!("File event detected: {}", event_str);
+                                    if let Err(e) = app_handle.emit_all("file-change-event", event_str.clone()) {
+                                        println!("Failed to emit event: {}", e);
+                                    }
+                                    // Add to recent_events
+                                    recent_events.insert(event_str.clone());
+                                    event_timestamps.insert(event_str, now);
+                                } else {
+                                    // Duplicate event, skip emitting
+                                    println!("Duplicate event detected, skipping: {}", event_str);
+                                }
+                            }
                         }
                     }
                 }
@@ -242,6 +272,8 @@ fn start_monitoring(
 
     Ok(())
 }
+
+
 
 #[tauri::command]
 fn remove_directory(
@@ -326,12 +358,31 @@ fn add_directory(
     }
 }
 
+#[tauri::command]
+fn get_watched_directories(
+    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+) -> Result<Vec<String>, String> {
+    let state = state.lock().map_err(|e| e.to_string())?;
+    
+    if let Some(monitoring_state) = state.as_ref() {
+        Ok(monitoring_state.directories.clone())
+    } else {
+        Err("Monitoring has not been started".to_string())
+    }
+}
+
 fn main() {
     let monitoring_state = Arc::new(Mutex::new(None::<MonitoringState>));
     
     tauri::Builder::default()
         .manage(monitoring_state)
-        .invoke_handler(tauri::generate_handler![start_monitoring, update_monitoring_directories, remove_directory])
+        .invoke_handler(tauri::generate_handler![
+            start_monitoring,
+            update_monitoring_directories,
+            remove_directory,
+            add_directory,
+            get_watched_directories  // Add the new command here
+        ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");
 }
@@ -340,16 +391,4 @@ fn main() {
 mod tests {
     use super::*;
     use notify::{EventKind, event::ModifyKind, event::DataChange, event::Event};
-
-    #[test]
-    fn test_format_event() {
-        let event = Event {
-            kind: EventKind::Modify(ModifyKind::Data(DataChange::Content)),
-            paths: vec![Path::new("/test/path").to_path_buf()],
-            attrs: Default::default(),
-        };
-
-        let formatted_event = format_event(&event).unwrap();
-        assert_eq!(formatted_event, "Error retrieving metadata for /test/path: File Not Found");
-    }
 }

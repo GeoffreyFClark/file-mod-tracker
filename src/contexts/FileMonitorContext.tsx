@@ -1,50 +1,61 @@
-// File: contexts/FileMonitorContext.tsx
-
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import useFileMonitor from '../hooks/useFileMonitor';
 import { TableDataRow } from '../utils/types';
 
 interface Directory {
   path: string;
-  isMonitored: boolean;
+  isEnabled: boolean;
 }
 
 interface FileMonitorContextType {
   tableData: TableDataRow[];
   addDirectory: () => Promise<string | undefined>;
   addDirectoryByPath: (directory: string) => Promise<void>;
-  removeDirectory: (directory: string) => Promise<void>;
+  toggleDirectoryState: (directory: string) => Promise<void>;
+  deleteDirectory: (directory: string) => Promise<void>;
   startMonitoring: () => Promise<void>;
   directories: Directory[];
+  refreshDirectories: () => Promise<void>;
 }
 
 const FileMonitorContext = createContext<FileMonitorContextType | undefined>(undefined);
+
+const DIRECTORIES_KEY = 'monitoredDirectories';
 
 export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = React.memo(({ children }) => {
   const fileMonitor = useFileMonitor();
   const initializationRef = useRef(false);
   
-  // Local state to manage directories with monitoring status
-  const [directories, setDirectories] = useState<Directory[]>([]);
+  const [directories, setDirectories] = useState<Directory[]>(() => {
+    const savedDirectories = localStorage.getItem(DIRECTORIES_KEY);
+    return savedDirectories ? JSON.parse(savedDirectories) : [];
+  });
 
-  // Fetch all directories with their monitoring status from the backend
-  // useEffect(() => {
-  //   const fetchAllDirectories = async () => {
-  //     try {
-  //       const response = await fetch('/api/directories'); // Replace with your actual API endpoint
-  //       if (!response.ok) {
-  //         throw new Error('Failed to fetch directories');
-  //       }
-  //       const data: Directory[] = await response.json();
-  //       setDirectories(data);
-  //       console.log('Fetched all directories:', data);
-  //     } catch (error) {
-  //       console.error('Error fetching directories:', error);
-  //     }
-  //   };
+  const refreshDirectories = async () => {
+    try {
+      const watchedDirectories = await fileMonitor.getWatchedDirectories();
+      setDirectories(prev => {
+        const updatedDirectories = prev.map(dir => ({
+          ...dir,
+          isEnabled: watchedDirectories.includes(dir.path)
+        }));
+        const newDirectories = watchedDirectories
+          .filter(dir => !prev.some(prevDir => prevDir.path === dir))
+          .map(dir => ({ path: dir, isEnabled: true }));
+        return [...updatedDirectories, ...newDirectories];
+      });
+    } catch (error) {
+      console.error('Error fetching directories:', error);
+    }
+  };
 
-  //   fetchAllDirectories();
-  // }, []);
+  useEffect(() => {
+    refreshDirectories();
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(DIRECTORIES_KEY, JSON.stringify(directories));
+  }, [directories]);
 
   const contextValue = useMemo(() => ({
     tableData: fileMonitor.tableData,
@@ -52,36 +63,41 @@ export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = Reac
     addDirectoryByPath: async (directory: string) => {
       try {
         await fileMonitor.addDirectoryByPath(directory);
-        setDirectories((prev) => {
-          // Avoid duplicates
-          const exists = prev.find((dir) => dir.path === directory);
-          if (exists) {
-            return prev.map((dir) =>
-              dir.path === directory ? { ...dir, isMonitored: true } : dir
-            );
-          }
-          return [...prev, { path: directory, isMonitored: true }];
-        });
-        console.log(`Added/Re-enabled directory: ${directory}`);
+        setDirectories(prev => [...prev, { path: directory, isEnabled: true }]);
+        console.log(`Added directory: ${directory}`);
       } catch (error) {
         console.error(`Error adding directory ${directory}:`, error);
       }
     },
-    removeDirectory: async (directory: string) => {
+    toggleDirectoryState: async (directory: string) => {
+      setDirectories(prev => 
+        prev.map(dir => 
+          dir.path === directory ? { ...dir, isEnabled: !dir.isEnabled } : dir
+        )
+      );
+      const dir = directories.find(d => d.path === directory);
+      if (dir) {
+        if (dir.isEnabled) {
+          await fileMonitor.removeDirectory(directory);
+          console.log(`Removed directory from backend: ${directory}`);
+        } else {
+          await fileMonitor.addDirectoryByPath(directory);
+          console.log(`Added directory to backend: ${directory}`);
+        }
+      }
+    },
+    deleteDirectory: async (directory: string) => {
       try {
         await fileMonitor.removeDirectory(directory);
-        setDirectories((prev) =>
-          prev.map((dir) =>
-            dir.path === directory ? { ...dir, isMonitored: false } : dir
-          )
-        );
-        console.log(`Disabled directory: ${directory}`);
+        setDirectories(prev => prev.filter(dir => dir.path !== directory));
+        console.log(`Deleted directory: ${directory}`);
       } catch (error) {
-        console.error(`Error removing directory ${directory}:`, error);
+        console.error(`Error deleting directory ${directory}:`, error);
       }
     },
     startMonitoring: fileMonitor.startMonitoring,
-    directories, // Now Directory[]
+    directories,
+    refreshDirectories,
   }), [fileMonitor, directories]);
 
   useEffect(() => {
@@ -89,11 +105,8 @@ export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = Reac
       if (initializationRef.current) return;
       initializationRef.current = true;
 
-      const defaultDirectory = 'C:\\example';
-      await fileMonitor.addDirectoryByPath(defaultDirectory);
-      console.log(`Default directory added: ${defaultDirectory}`);
-
       await fileMonitor.startMonitoring();
+      await refreshDirectories();
     };
 
     initializeMonitoring();

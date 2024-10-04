@@ -3,19 +3,41 @@ export interface FileChangeEntry {
   PID: number | string;
   Type: string;
   Timestamp: string;
+  Size: string; // Add this line
 }
 
-export interface TableDataRow {
+export interface ParentTableDataRow {
   Path: string;
-  PID: number | string;
-  Type: string;
+  PID: '*';
+  Type: '*';
   Timestamp: string;
   Changes: number;
   entries: FileChangeEntry[];
+  Size: string; // Add this line
+}
+
+export interface WatcherTableDataRow {
+  Watcher: string;
+  files: ParentTableDataRow[];
+}
+
+
+// TableDataRow becomes a union type to allow both parent and child structures
+export type TableDataRow = ParentTableDataRow | FileChangeEntry;
+
+// Update RawDataItem to match the new structure
+export interface RawDataItem {
+  Path: string;
+  PID: '*';
+  Type: '*';
+  Timestamp: string;
+  Changes: number;
+  entries: RawDataEntry[];
 }
 
 export interface LogsTableProps {
-  data: TableDataRow[];
+  parsedData: DataRow[];
+  rawData?: TableDataRow[];
 }
 
 export interface Directory {
@@ -56,10 +78,6 @@ export interface inputRowType {
   cells: inputCellType[];
 }
 
-export interface LogsTableProps {
-  data: TableDataRow[];
-  dataTableRef: React.MutableRefObject<any>;
-}
 
 export interface DataCell {
   data: string | number;
@@ -85,13 +103,6 @@ export interface Data {
   data: DataRow[];
 }
 
-export interface TableDataRow {
-  Path: string;
-  PID: string | number;
-  Type: string;
-  Timestamp: string;
-  Changes: number;
-}
 
 export interface RawDataEntry {
   Path: string;
@@ -102,11 +113,3 @@ export interface RawDataEntry {
   Metadata: Record<string, string>;
 }
 
-export interface RawDataItem {
-  Path: string;
-  PID: string | number;
-  Type: string;
-  Timestamp: string;
-  Changes: number;
-  entries: RawDataEntry[];
-}

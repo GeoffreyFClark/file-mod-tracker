@@ -10,6 +10,8 @@ export interface FileChangeEntry {
   OtherPath?: string;
   DisplayType: string;
   Metadata: Record<string, string>;
+  Watcher: string; // Add this line
+  Size: string;
 }
 
 export interface FileMonitorState {
@@ -25,6 +27,8 @@ interface FileDetail {
   Timestamp: string;
   entries: FileChangeEntry[];
   Metadata: Record<string, string>;
+  Watcher: string; // Add this line
+  Size: string;
 }
 
 function getBaseName(path: string): string {
@@ -51,39 +55,43 @@ export class FileMonitor {
   private setupListener() {
     listen('file-change-event', (event) => {
       const change = event.payload as string;
-      const [eventTypeAndPath, ...rest] = change.split('\n');
-      const [eventType, pathInfo] = eventTypeAndPath.split(': ');
+      const lines = change.split('\n');
+      const [eventTypeAndPath, watcherLine, ...rest] = lines;
+      const [eventType, filePath] = eventTypeAndPath.split(': ');
       
-      let filePath: string = pathInfo;
-      let fromPath: string | undefined;
-      let toPath: string | undefined;
       const metadata: Record<string, string> = {};
-
+      let watcher = 'Unknown';
+      let size = 'N/A';
+  
+      if (watcherLine && watcherLine.startsWith('Watcher: ')) {
+        watcher = watcherLine.split(': ')[1];
+      }
+  
       rest.forEach(line => {
-        if (line.startsWith('FromPath: ')) {
-          fromPath = line.split(': ')[1];
-        } else if (line.startsWith('ToPath: ')) {
-          toPath = line.split(': ')[1];
-        } else {
-          const [key, value] = line.split(': ');
-          metadata[key] = value;
+        const [key, value] = line.split(': ');
+        if (key && value) {
+          if (key === 'Size') {
+            size = value.trim();
+          } else {
+            metadata[key] = value.trim();
+          }
         }
       });
-
+  
       // Determine which directory this file belongs to
       const dir = this.state.directories.find((directory) => filePath.startsWith(directory));
       if (dir) {
         // Initialize structures if they don't exist
         const newFileChanges = { ...this.state.fileChanges };
         const newFileDetails = { ...this.state.fileDetails };
-
+  
         if (!newFileChanges[dir]) {
           newFileChanges[dir] = {};
         }
         if (!newFileDetails[dir]) {
           newFileDetails[dir] = {};
         }
-
+  
         const updateFileDetails = (path: string, type: string, displayType: string) => {
           if (!newFileDetails[dir][path]) {
             newFileDetails[dir][path] = {
@@ -93,15 +101,19 @@ export class FileMonitor {
               Timestamp: metadata.Modified || new Date().toISOString(),
               entries: [],
               Metadata: metadata,
+              Watcher: watcher,
+              Size: size,  // Add this line
             };
           }
-
+  
           const detail = newFileDetails[dir][path];
           detail.Type = type;
           detail.DisplayType = displayType;
           detail.Timestamp = metadata.Modified || detail.Timestamp;
           detail.Metadata = { ...detail.Metadata, ...metadata };
-
+          detail.Watcher = watcher;
+          detail.Size = size;  // Add this line
+  
           const newEntry: FileChangeEntry = {
             Path: path,
             PID: detail.PID,
@@ -109,58 +121,31 @@ export class FileMonitor {
             DisplayType: displayType,
             Timestamp: detail.Timestamp,
             Metadata: metadata,
+            Watcher: watcher,
+            Size: size,  // Add this line
           };
-
-          if (type.startsWith('Renamed')) {
-            newEntry.OtherPath = type === 'Renamed from' ? toPath : fromPath;
-          }
-
+  
           detail.entries.push(newEntry);
-
+  
           // Update fileChanges
           newFileChanges[dir][path] = (newFileChanges[dir][path] || 0) + 1;
         };
 
-        if (eventType === 'Renamed from') {
-          updateFileDetails(filePath, 'Renamed from', `Renamed to ${getBaseName(toPath || '')}`);
-          if (toPath) updateFileDetails(toPath, 'Renamed to', `Renamed from ${getBaseName(filePath)}`);
-        } else if (eventType === 'Renamed to') {
-          updateFileDetails(filePath, 'Renamed to', `Renamed from ${getBaseName(fromPath || '')}`);
-          if (fromPath) updateFileDetails(fromPath, 'Renamed from', `Renamed to ${getBaseName(filePath)}`);
-        } else {
-          updateFileDetails(filePath, eventType, eventType);
-        }
-
+        
+  
+        updateFileDetails(filePath, eventType, eventType);
+  
         // Create a new state object
         const newState: FileMonitorState = {
           ...this.state,
           fileChanges: newFileChanges,
           fileDetails: newFileDetails,
         };
-
+  
         this.state = newState;
         this.updateState(this.state);
       }
     });
-  }
-
-  
-  public async addDirectory(): Promise<string | undefined> {
-    try {
-      const selectedDirectory = await open({
-        directory: true,
-        multiple: false,
-      });
-
-      if (selectedDirectory) {
-        const dir = selectedDirectory as string;
-        await this.addDirectoryByPath(dir);
-        return dir;
-      }
-    } catch (error) {
-      console.error('Error selecting directory:', error);
-      throw error;
-    }
   }
 
   public async addDirectoryByPath(directory: string): Promise<void> {
@@ -169,18 +154,33 @@ export class FileMonitor {
       const newState: FileMonitorState = {
         ...this.state,
         directories: newDirectories,
-        fileChanges: { ...this.state.fileChanges, [directory]: {} },
-        fileDetails: { ...this.state.fileDetails, [directory]: {} },
+        fileChanges: { 
+          ...this.state.fileChanges, 
+          [directory]: this.state.fileChanges[directory] || {} 
+        },
+        fileDetails: { 
+          ...this.state.fileDetails, 
+          [directory]: this.state.fileDetails[directory] || {} 
+        },
       };
       this.state = newState;
       this.updateState(this.state);
-      console.log(`Directory added: ${directory}`);
-
+      console.log(`Directory added or re-added: ${directory}`);
+  
       if (this.isMonitoring) {
         await this.updateMonitoringDirectories();
       }
     } else {
       console.log(`Directory already being monitored: ${directory}`);
+    }
+  }
+
+  public async getWatchedDirectories(): Promise<string[]> {
+    try {
+      return await invoke('get_watched_directories') as string[];
+    } catch (error) {
+      console.error('Error fetching watched directories:', error);
+      throw error;
     }
   }
 
@@ -218,8 +218,8 @@ export class FileMonitor {
           ...this.state,
           directories: this.state.directories.filter(dir => dir !== directory),
         };
-        delete newState.fileChanges[directory];
-        delete newState.fileDetails[directory];
+        // delete newState.fileChanges[directory];
+        // delete newState.fileDetails[directory];
   
         this.state = newState;
         this.updateState(this.state);
