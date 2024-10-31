@@ -18,7 +18,7 @@ import Detections from './pages/Detections';
 import Settings from './pages/Settings';
 
 const ClearStorageOnMount: React.FC = () => {
-  const { clearStorage } = useRegistryMonitorContext();
+  const { clearStorage} = useRegistryMonitorContext();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -34,6 +34,7 @@ const ClearStorageOnMount: React.FC = () => {
 
 const DataListener: React.FC = () => {
   const { tableData, directories } = useFileMonitorContext();
+  const { isMonitoring, registryEvents, registryTableData } = useRegistryMonitorContext();
 
   // File monitoring logs
   useEffect(() => {
@@ -44,10 +45,33 @@ const DataListener: React.FC = () => {
     console.log('FileMonitor directories updated:', directories);
   }, [directories]);
 
-  return null;
+ // Registry monitoring logs
+ useEffect(() => {
+  console.log('Registry monitoring status:', isMonitoring);
+}, [isMonitoring]);
+
+useEffect(() => {
+  console.log('Registry table data updated:', registryTableData);
+}, [registryTableData]);
+
+useEffect(() => {
+  if (registryEvents.length > 0) {
+    const latestEvent = registryEvents[registryEvents.length - 1];
+    console.log('New registry event:', {
+      type: latestEvent.type,
+      key: latestEvent.key,
+      value: latestEvent.value,
+      previousData: latestEvent.previousData,
+      newData: latestEvent.newData,
+      timestamp: latestEvent.timestamp
+    });
+  }
+}, [registryEvents]);
+
+return null;
 };
 
-const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
+  const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
   console.log('ContentRenderer rendering, selectedItem:', selectedItem);
 
   const memoizedContent = useMemo(() => ({
