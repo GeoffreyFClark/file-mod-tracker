@@ -1,16 +1,15 @@
 import React, { useMemo, useEffect } from 'react';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import { FileMonitorProvider, useFileMonitorContext } from './contexts/FileMonitorContext';
+import { RegistryMonitorProvider, useRegistryMonitorContext } from './contexts/RegistryMonitorContext';
 import Tabs from './components/Tabs';
-
-// Import Heroicons
 import { 
   HomeIcon, 
   DocumentTextIcon, 
   BookmarkIcon, 
   EyeIcon, 
   Cog6ToothIcon 
-} from '@heroicons/react/24/outline'; // Use '/solid' for solid icons
+} from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
@@ -18,10 +17,25 @@ import Saved from './pages/Saved';
 import Detections from './pages/Detections';
 import Settings from './pages/Settings';
 
-// This component only listens for data changes
+const ClearStorageOnMount: React.FC = () => {
+  const { clearStorage } = useRegistryMonitorContext();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('[ClearStorageOnMount] Clearing registry storage on app launch');
+      clearStorage();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [clearStorage]);
+
+  return null;
+};
+
 const DataListener: React.FC = () => {
   const { tableData, directories } = useFileMonitorContext();
 
+  // File monitoring logs
   useEffect(() => {
     console.log('FileMonitor tableData updated:', tableData);
   }, [tableData]);
@@ -30,10 +44,9 @@ const DataListener: React.FC = () => {
     console.log('FileMonitor directories updated:', directories);
   }, [directories]);
 
-  return null; // This component doesn't render anything
+  return null;
 };
 
-// This component handles the rendering of content
 const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
   console.log('ContentRenderer rendering, selectedItem:', selectedItem);
 
@@ -57,7 +70,6 @@ function AppContent() {
 
   console.log('AppContent rendering');
 
-  // Define the tabs based on your application's navigation items
   const tabs = useMemo(() => [
     { name: 'Dashboard', current: selectedItem === 'Dashboard', icon: HomeIcon },
     { name: 'Logs', current: selectedItem === 'Logs', icon: DocumentTextIcon },
@@ -67,20 +79,14 @@ function AppContent() {
   ], [selectedItem]);
 
   return (
-    <FileMonitorProvider>
-      <DataListener />
-      <div className="flex flex-col min-h-screen">
-        {/* Tabs Component */}
-        <div className="sticky top-0 bg-white z-50 shadow">
-          <Tabs tabs={tabs} onTabChange={setSelectedItem} />
-        </div>
-        
-        {/* Content Area */}
-        <div className="flex-grow container mx-auto mt-4 px-4">
-          <ContentRenderer selectedItem={selectedItem} />
-        </div>
+    <div className="flex flex-col min-h-screen">
+      <div className="sticky top-0 bg-white z-50 shadow">
+        <Tabs tabs={tabs} onTabChange={setSelectedItem} />
       </div>
-    </FileMonitorProvider>
+      <div className="flex-grow container mx-auto mt-4 px-4">
+        <ContentRenderer selectedItem={selectedItem} />
+      </div>
+    </div>
   );
 }
 
@@ -89,7 +95,13 @@ function App() {
 
   return (
     <NavigationProvider>
-      <AppContent />
+      <RegistryMonitorProvider>
+        <FileMonitorProvider>
+          <ClearStorageOnMount />
+          <DataListener />
+          <AppContent />
+        </FileMonitorProvider>
+      </RegistryMonitorProvider>
     </NavigationProvider>
   );
 }

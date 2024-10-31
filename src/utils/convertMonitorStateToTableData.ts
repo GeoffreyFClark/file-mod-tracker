@@ -1,5 +1,5 @@
 import { FileMonitorState } from '../hooks/monitor';
-import { WatcherTableDataRow, ParentTableDataRow, FileChangeEntry } from '../utils/types';
+import { WatcherTableDataRow, ParentTableDataRow, FileChangeEntry, RegistryTableDataRow, RegistryChangeEntry, RegistryEvent } from '../utils/types';
 
 export const convertMonitorStateToTableData = (state: FileMonitorState): WatcherTableDataRow[] => {
   const watcherDataMap: Record<string, ParentTableDataRow[]> = {};
@@ -63,4 +63,36 @@ export const convertMonitorStateToTableData = (state: FileMonitorState): Watcher
     Watcher: watcher,
     files: files,
   }));
+};
+
+
+export const convertRegistryEventsToTableData = (
+  events: RegistryEvent[], 
+  getChangeCount: (key: string) => number
+): RegistryTableDataRow[] => {
+  const registryDataMap: Record<string, RegistryTableDataRow> = {};
+
+  events.forEach((event: RegistryEvent) => {
+    const key = event.key.replace(' was changed.', '');
+    
+    if (!registryDataMap[key]) {
+      registryDataMap[key] = {
+        Key: key,
+        entries: [],
+        Changes: getChangeCount(key)
+      };
+    }
+
+    const changeEntry: RegistryChangeEntry = {
+      Type: event.type || "UNKNOWN",
+      Value: event.value || "",
+      PreviousData: event.previousData || "",
+      NewData: event.newData || "",
+      Timestamp: event.timestamp
+    };
+
+    registryDataMap[key].entries.push(changeEntry);
+  });
+
+  return Object.values(registryDataMap);
 };

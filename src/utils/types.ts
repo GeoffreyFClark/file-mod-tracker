@@ -113,3 +113,25 @@ export interface RawDataEntry {
   Metadata: Record<string, string>;
 }
 
+export interface RegistryTableDataRow {
+  Key: string;         // The registry key as the main grouping
+  entries: RegistryChangeEntry[];
+  Changes: number;     // Total number of changes to this key
+}
+
+export interface RegistryChangeEntry {
+  Type: string;        // UPDATED, ADDED, REMOVED
+  Value: string;       // The registry value that changed
+  PreviousData: string;
+  NewData: string;
+  Timestamp: string;
+}
+
+export interface RegistryEvent {
+  type: string;         // UPDATED, ADDED, REMOVED
+  key: string;          // Registry key that was changed
+  value: string;        // Registry value that was changed
+  previousData?: string; // Previous data if available
+  newData?: string;     // New data if available
+  timestamp: string;    // Timestamp of the change
+}

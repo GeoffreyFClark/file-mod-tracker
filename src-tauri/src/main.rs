@@ -1,394 +1,242 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::collections::{HashMap, HashSet, BTreeMap};
-use std::ffi::OsStr;
-use std::fs::metadata as get_metadata;
-use std::io::ErrorKind;
-use std::os::windows::ffi::OsStrExt;
-use std::path::Path;
+mod file_monitor;
+mod registry_monitor;
+
+use file_monitor::FileMonitor;
+use log::{error, info};
+use registry_monitor::RegistryMonitor;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Sender};
-use std::thread;
-use std::time::{Duration, Instant};
-
-use chrono::{DateTime, Utc};
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use tauri::Manager;
-use winapi::um::fileapi::GetFileAttributesW;
-use winapi::um::winnt::{
-    FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_TEMPORARY,
-};
-use chrono::NaiveDateTime;
 
-/// Retrieves file attributes for a given path using GetFileAttributesW from winapi,
-/// converting the path to UTF-16. Returns the attribute bitmask (u32) or an error message.
-fn get_file_attributes(file_path: &str) -> Result<u32, String> {
-    let path_wide: Vec<u16> = OsStr::new(file_path)
-        .encode_wide()
-        .chain(std::iter::once(0))
-        .collect();
-
-    unsafe {
-        let attributes = GetFileAttributesW(path_wide.as_ptr());
-        if attributes != u32::MAX {
-            Ok(attributes)
-        } else {
-            let err = std::io::Error::last_os_error();
-            match err.kind() {
-                ErrorKind::PermissionDenied => Err("Access Denied".to_string()),
-                ErrorKind::NotFound => Err("File Not Found".to_string()),
-                _ => Err(format!("Error: {}", err)),
-            }
-        }
-    }
+/// Application state containing both monitoring systems.
+/// 
+/// The state is shared across threads and command handlers using Arc (Atomic Reference Counting)
+/// for thread-safe sharing and Mutex for safe mutable access.
+///
+/// # Fields
+/// * `file_monitor` - Thread-safe reference to the file system monitor
+/// * `registry_monitor` - Thread-safe reference to the optional registry monitor
+struct AppState {
+    file_monitor: Arc<FileMonitor>,
+    registry_monitor: Arc<Mutex<Option<RegistryMonitor>>>,
 }
 
-/// Formats u64 file size to string with commas and appends "bytes".
-fn format_file_size(size: u64) -> String {
-    let size_str = size.to_string();
-    let mut result = String::new();
-    for (i, ch) in size_str.chars().rev().enumerate() {
-        if i > 0 && i % 3 == 0 {
-            result.insert(0, ',');
-        }
-        result.insert(0, ch);
-    }
-    format!("{} bytes", result)
-}
+// File Monitoring Commands
 
-/// Retrieves file metadata as a BTreeMap, including size, timestamps, readonly status,
-/// and additional attributes (e.g., hidden, temporary, encrypted). Returns any errors.
-fn get_file_metadata(file_path: &str) -> Result<BTreeMap<String, String>, std::io::Error> {
-    let mut metadata_map = BTreeMap::new();
-
-    // Get the file metadata
-    let file_metadata = match get_metadata(file_path) {
-        Ok(meta) => {
-            let file_size = meta.len();
-            let formatted_size = format_file_size(file_size);
-            metadata_map.insert("Size".to_string(), formatted_size);
-            meta
-        }
-        Err(e) => {
-            let error_message = match e.kind() {
-                ErrorKind::PermissionDenied => "Access Denied".to_string(),
-                ErrorKind::NotFound => "File Not Found".to_string(),
-                _ => format!("Error: {}", e),
-            };
-            for key in &["Size", "Created", "Modified", "Accessed", "Readonly"] {
-                metadata_map.insert((*key).to_string(), error_message.clone());
-            }
-            return Ok(metadata_map);
-        }
-    };
-
-    // Helper function to format file times
-    fn get_formatted_time(time_result: Result<std::time::SystemTime, std::io::Error>) -> String {
-        match time_result {
-            Ok(time) => {
-                let datetime: DateTime<Utc> = time.into();
-                datetime.format("%Y-%m-%d %H:%M:%S").to_string()
-            }
-            Err(e) => match e.kind() {
-                ErrorKind::PermissionDenied => "Access Denied".to_string(),
-                ErrorKind::NotFound => "File Not Found".to_string(),
-                _ => format!("Error: {}", e),
-            },
-        }
-    }
-
-    // File times
-    metadata_map.insert(
-        "Accessed".to_string(),
-        get_formatted_time(file_metadata.accessed()),
-    );
-    metadata_map.insert(
-        "Created".to_string(),
-        get_formatted_time(file_metadata.created()),
-    );
-    metadata_map.insert(
-        "Modified".to_string(),
-        get_formatted_time(file_metadata.modified()),
-    );
-
-    // Readonly status
-    let readonly = file_metadata.permissions().readonly();
-    metadata_map.insert("Readonly".to_string(), readonly.to_string());
-
-    // Get file attributes
-    match get_file_attributes(file_path) {
-        Ok(attributes) => {
-            let is_hidden = attributes & FILE_ATTRIBUTE_HIDDEN != 0;
-            let is_temporary = attributes & FILE_ATTRIBUTE_TEMPORARY != 0;
-            let is_encrypted = attributes & FILE_ATTRIBUTE_ENCRYPTED != 0;
-            metadata_map.insert("IsEncrypted".to_string(), is_encrypted.to_string());
-            metadata_map.insert("IsHidden".to_string(), is_hidden.to_string());
-            metadata_map.insert("IsTemporary".to_string(), is_temporary.to_string());
-        }
-        Err(err) => {
-            for key in &["IsEncrypted", "IsHidden", "IsTemporary"] {
-                metadata_map.insert((*key).to_string(), err.clone());
-            }
-        }
-    }
-
-    Ok(metadata_map)
-}
-
-/// Formats a file's metadata for a given file change event, converting it into a string.
-fn format_event(event: &Event, watcher_dir: &str) -> NotifyResult<String> {
-    let event_type = match &event.kind {
-        EventKind::Create(_) => "Created",
-        EventKind::Modify(_) => "Modified",
-        EventKind::Remove(_) => "Removed",
-        EventKind::Access(_) => "Accessed",
-        _ => "Other",
-    };
-
-    let mut event_str = String::new();
-
-    if let Some(path) = event.paths.get(0).map(|p| p.to_str().unwrap_or("")) {
-        // Add event type and path
-        event_str.push_str(&format!("{}: {}\n", event_type, path));
-        
-        // Add Watcher information as a separate line
-        event_str.push_str(&format!("Watcher: {}\n", watcher_dir));
-
-        // Fetch and append file metadata
-        let metadata = get_file_metadata(path);
-
-        match metadata {
-            Ok(metadata) => {
-                // Format metadata as separate lines
-                for (key, value) in metadata.iter() {
-                    if key == "Modified" {
-                        if NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S").is_err() {
-                            let current_time = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                            event_str.push_str(&format!("{}: {}\n", key, current_time));
-                        } else {
-                            event_str.push_str(&format!("{}: {}\n", key, value));
-                        }
-                    } else {
-                        event_str.push_str(&format!("{}: {}\n", key, value));
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Error retrieving metadata for {}: {}", path, e);
-                event_str.push_str("Error retrieving metadata\n");
-            }
-        }
-    }
-
-    Ok(event_str.trim_end().to_string())
-}
-
-struct MonitoringState {
-    watcher: RecommendedWatcher,
-    directories: Vec<String>,
-}
-
+/// Initiates file system monitoring for specified directories.
+///
+/// # Arguments
+/// * `directories` - Vector of directory paths to monitor
+/// * `state` - Application state containing the file monitor
+///
+/// # Returns
+/// * `Ok(())` if monitoring started successfully
+/// * `Err(String)` with error message if monitoring failed to start
 #[tauri::command]
-fn start_monitoring(
+async fn start_monitoring(
     directories: Vec<String>,
-    app_handle: tauri::AppHandle,
-    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Start monitoring of directories: {:?}", directories);
-
-    let (tx, rx) = channel();
-
-    let mut watcher: RecommendedWatcher = Watcher::new(tx.clone(), Config::default())
-        .map_err(|e| e.to_string())?;
-
-    // Watch all initial directories
-    for dir in &directories {
-        watcher.watch(Path::new(dir), RecursiveMode::Recursive)
-            .map_err(|e| format!("Failed to watch directory {}: {}", dir, e))?;
-    }
-
-    // Clone the Arc to move into the thread
-    let state_clone = Arc::clone(&state);
-
-    {
-        // Update the shared state
-        let mut state_guard = state.lock().map_err(|e| e.to_string())?;
-        *state_guard = Some(MonitoringState {
-            watcher,
-            directories: directories.clone(),
-        });
-    }
-
-    thread::spawn(move || {
-        println!("Monitoring thread started");
-
-        // Use a HashSet to keep track of recent events
-        let mut recent_events = HashSet::new();
-        let mut event_timestamps = HashMap::new();
-        let event_cache_duration = Duration::from_secs(1); // Adjust the duration as needed
-
-        while let Ok(event_result) = rx.recv() {
-            // Clean up old events from recent_events
-            let now = Instant::now();
-            event_timestamps.retain(|_, &mut timestamp| now.duration_since(timestamp) < event_cache_duration);
-            recent_events.retain(|event_str| event_timestamps.contains_key(event_str));
-
-            match event_result {
-                Ok(event) => {
-                    if let Some(path) = event.paths.first() {
-                        // Access the latest list of directories from the shared state
-                        let directories = {
-                            let state_guard = state_clone.lock().unwrap();
-                            if let Some(ref monitoring_state) = *state_guard {
-                                monitoring_state.directories.clone()
-                            } else {
-                                Vec::new()
-                            }
-                        };
-
-                        if let Some(watcher_dir) = directories.iter().find(|dir| path.starts_with(dir)) {
-                            if let Ok(event_str) = format_event(&event, watcher_dir) {
-                                if !recent_events.contains(&event_str) {
-                                    // It's a new event, emit it
-                                    println!("File event detected: {}", event_str);
-                                    if let Err(e) = app_handle.emit_all("file-change-event", event_str.clone()) {
-                                        println!("Failed to emit event: {}", e);
-                                    }
-                                    // Add to recent_events
-                                    recent_events.insert(event_str.clone());
-                                    event_timestamps.insert(event_str, now);
-                                } else {
-                                    // Duplicate event, skip emitting
-                                    println!("Duplicate event detected, skipping: {}", event_str);
-                                }
-                            }
-                        }
-                    }
-                }
-                Err(e) => println!("Watch error: {:?}", e),
-            }
-        }
-        println!("Exiting the monitoring thread.");
-    });
-
-    Ok(())
+    state.file_monitor.start_monitoring(directories)
 }
 
-
-
+/// Removes a directory from the monitoring list.
+///
+/// # Arguments
+/// * `directory` - Path of directory to stop monitoring
+/// * `state` - Application state containing the file monitor
+///
+/// # Returns
+/// * `Ok(())` if directory was removed successfully
+/// * `Err(String)` with error message if removal failed
 #[tauri::command]
-fn remove_directory(
+async fn remove_directory(
     directory: String,
-    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Removing directory: {}", directory);
-
-    let mut state = state.lock().map_err(|e| e.to_string())?;
-    
-    if let Some(monitoring_state) = state.as_mut() {
-        if let Err(e) = monitoring_state.watcher.unwatch(Path::new(&directory)) {
-            println!("Failed to unwatch directory {}: {}", directory, e);
-            return Err(format!("Failed to unwatch directory {}: {}", directory, e));
-        }
-
-        monitoring_state.directories.retain(|dir| dir != &directory);
-        println!("Removed directory from monitoring: {}", directory);
-        Ok(())
-    } else {
-        Err("Monitoring has not been started".to_string())
-    }
+    state.file_monitor.remove_directory(directory)
 }
 
-
+/// Updates the list of monitored directories.
+///
+/// # Arguments
+/// * `directories` - New vector of directory paths to monitor
+/// * `state` - Application state containing the file monitor
+///
+/// # Returns
+/// * `Ok(())` if update was successful
+/// * `Err(String)` with error message if update failed
 #[tauri::command]
-fn update_monitoring_directories(
+async fn update_monitoring_directories(
     directories: Vec<String>,
-    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Updating monitored directories: {:?}", directories);
-
-    let mut state = state.lock().map_err(|e| e.to_string())?;
-    
-    if let Some(monitoring_state) = state.as_mut() {
-        // Stop watching old directories
-        for dir in &monitoring_state.directories {
-            if let Err(e) = monitoring_state.watcher.unwatch(Path::new(dir)) {
-                println!("Failed to unwatch directory {}: {}", dir, e);
-            }
-        }
-
-        // Start watching new directories
-        for dir in &directories {
-            if let Err(e) = monitoring_state.watcher.watch(Path::new(dir), RecursiveMode::Recursive) {
-                println!("Failed to watch directory {}: {}", dir, e);
-            }
-        }
-
-        monitoring_state.directories = directories;
-        println!("Updated monitored directories");
-    } else {
-        return Err("Monitoring has not been started".to_string());
-    }
-
-    Ok(())
+    state.file_monitor.update_monitoring_directories(directories)
 }
 
-
+/// Adds a new directory to the monitoring list.
+///
+/// # Arguments
+/// * `directory` - Path of directory to start monitoring
+/// * `state` - Application state containing the file monitor
+///
+/// # Returns
+/// * `Ok(())` if directory was added successfully
+/// * `Err(String)` with error message if addition failed
 #[tauri::command]
-fn add_directory(
+async fn add_directory(
     directory: String,
-    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+    state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    println!("Adding directory: {}", directory);
-
-    let mut state = state.lock().map_err(|e| e.to_string())?;
-    
-    if let Some(monitoring_state) = state.as_mut() {
-        if let Err(e) = monitoring_state.watcher.watch(Path::new(&directory), RecursiveMode::Recursive) {
-            println!("Failed to watch directory {}: {}", directory, e);
-            return Err(format!("Failed to watch directory {}: {}", directory, e));
-        }
-
-        if !monitoring_state.directories.contains(&directory) {
-            monitoring_state.directories.push(directory.clone());
-        }
-        println!("Added directory to monitoring: {}", directory);
-        Ok(())
-    } else {
-        Err("Monitoring has not been started".to_string())
-    }
+    state.file_monitor.add_directory(directory)
 }
 
+/// Retrieves the list of currently monitored directories.
+///
+/// # Arguments
+/// * `state` - Application state containing the file monitor
+///
+/// # Returns
+/// * `Ok(Vec<String>)` containing list of monitored directory paths
+/// * `Err(String)` with error message if retrieval failed
 #[tauri::command]
-fn get_watched_directories(
-    state: tauri::State<'_, Arc<Mutex<Option<MonitoringState>>>>,
+async fn get_watched_directories(
+    state: tauri::State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
-    let state = state.lock().map_err(|e| e.to_string())?;
-    
-    if let Some(monitoring_state) = state.as_ref() {
-        Ok(monitoring_state.directories.clone())
+    state.file_monitor.get_watched_directories()
+}
+
+// Registry Monitoring Commands
+
+/// Initiates registry monitoring for predefined registry keys.
+///
+/// Creates and starts a new registry monitor if one isn't already running.
+/// Monitors specific registry keys related to startup, services, and software installation.
+///
+/// # Arguments
+/// * `state` - Application state containing the registry monitor
+/// * `app_handle` - Handle to the Tauri application for event emission
+///
+/// # Returns
+/// * `Ok(())` if monitoring started successfully
+/// * `Err(String)` if monitoring was already running or failed to start
+#[tauri::command]
+async fn start_registry_monitoring(
+    state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let mut registry_guard = state.registry_monitor.lock().map_err(|e| e.to_string())?;
+    if registry_guard.is_none() {
+        let monitor = RegistryMonitor::new(app_handle);
+        monitor.start_monitoring()?;
+        *registry_guard = Some(monitor);
+        Ok(())
     } else {
-        Err("Monitoring has not been started".to_string())
+        Err("Registry monitoring already started".to_string())
     }
 }
 
+/// Stops the registry monitoring system.
+///
+/// # Arguments
+/// * `state` - Application state containing the registry monitor
+///
+/// # Returns
+/// * `Ok(())` if monitoring was successfully stopped
+/// * `Err(String)` if monitoring wasn't running or failed to stop
+#[tauri::command]
+async fn stop_registry_monitoring(
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let mut registry_guard = state.registry_monitor.lock().map_err(|e| e.to_string())?;
+    if let Some(monitor) = registry_guard.as_ref() {
+        monitor.stop_monitoring()?;
+        *registry_guard = None;
+        Ok(())
+    } else {
+        Err("Registry monitoring not started".to_string())
+    }
+}
+
+/// Checks if registry monitoring is currently active.
+///
+/// # Arguments
+/// * `state` - Application state containing the registry monitor
+///
+/// # Returns
+/// * `Ok(bool)` - true if monitoring is active, false otherwise
+/// * `Err(String)` if the check failed
+#[tauri::command]
+async fn is_registry_monitoring(
+    state: tauri::State<'_, AppState>,
+) -> Result<bool, String> {
+    let registry_guard = state.registry_monitor.lock().map_err(|e| e.to_string())?;
+    Ok(registry_guard.is_some())
+}
+
+/// Main application entry point.
+///
+/// Sets up logging, initializes the application state, and starts the Tauri application.
+/// Configures the monitoring systems and registers command handlers for frontend interaction.
+///
+/// # Logging
+/// - Configures timestamp-based logging
+/// - Differentiates between registry and file system logs
+/// - Logs are formatted as: [timestamp] level - system: message
+///
+/// # Command Registration
+/// - Registers file monitoring commands
+/// - Registers registry monitoring commands
+/// - Makes commands available to the frontend via Tauri's IPC system
 fn main() {
-    let monitoring_state = Arc::new(Mutex::new(None::<MonitoringState>));
-    
+    println!("Hello, world!");
+    // Configure logging system
+    env_logger::Builder::from_env(env_logger::Env::default())
+        .format(|buf, record| {
+            use std::io::Write;
+            let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+            writeln!(
+                buf,
+                "[{}] {} - {}: {}",
+                timestamp,
+                record.level(),
+                if record.target().contains("registry") { "Registry" } else { "FileSystem" },
+                record.args()
+            )
+        })
+        .init();
+
+    // Initialize and run the Tauri application
     tauri::Builder::default()
-        .manage(monitoring_state)
+            .setup(|app| {
+                let app_handle = app.handle();
+                let monitor = RegistryMonitor::new(app_handle.clone());
+                
+                // Start registry monitoring immediately
+                if let Err(e) = monitor.start_monitoring() {
+                    error!("Failed to start registry monitoring: {}", e);
+                } else {
+                    info!("Registry monitoring started automatically for default locations");
+                }
+            
+                let app_state = AppState {
+                    file_monitor: Arc::new(FileMonitor::new(app_handle.clone())),
+                    registry_monitor: Arc::new(Mutex::new(Some(monitor))), // Store the already-started monitor
+                };
+                app.manage(app_state);
+                Ok(())
+            })
         .invoke_handler(tauri::generate_handler![
+            // File monitoring commands
             start_monitoring,
             update_monitoring_directories,
             remove_directory,
             add_directory,
-            get_watched_directories  // Add the new command here
+            get_watched_directories,
+            // Registry monitoring commands
+            start_registry_monitoring,
+            stop_registry_monitoring,
+            is_registry_monitoring
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use notify::{EventKind, event::ModifyKind, event::DataChange, event::Event};
 }

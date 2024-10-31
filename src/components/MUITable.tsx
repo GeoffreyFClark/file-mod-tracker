@@ -38,21 +38,8 @@ const columnsUnique = [
     header: 'Path',
     size: 300,
   }),
-  columnHelper.accessor('pid', {
-    header: 'PID',
-    size: 60,
-  }),
-  columnHelper.accessor('type', {
-    header: 'Type',
-    size: 100,
-  }),
-  columnHelper.accessor('size', {
-    header: 'Size',
-    size: 100,
-    Cell: ({ cell }) => `${cell.getValue<string>()} bytes`,
-  }),
   columnHelper.accessor('timestamp', {
-    header: 'Timestamp',
+    header: 'Last Modified',
     size: 200,
     Cell: ({ cell }) =>
       new Date(cell.getValue<string>()).toLocaleString(undefined, {

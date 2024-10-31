@@ -76,6 +76,13 @@
   --tw-bg-opacity: 0.5 !important;
 }
 
+.css-4bfq6k-MuiButtonBase-root-MuiTab-root.Mui-selected {
+  color: #6875F5 !important;
+}
+.css-1sj2jcg-MuiTabs-indicator {
+  background-color: #6875F5 !important;
+}
+
 
 @media (min-width: 1536px) {
   .container {

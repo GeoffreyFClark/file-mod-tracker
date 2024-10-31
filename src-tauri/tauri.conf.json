@@ -27,7 +27,9 @@
       {
         "title": "file-mod-tracker",
         "width": 1920,
-        "height": 1080
+        "height": 1080,
+        "x": 320,
+        "y": 180
       }
     ],
     "security": {
