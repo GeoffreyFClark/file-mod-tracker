@@ -135,7 +135,8 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
 fn format_event(event: &Event) -> NotifyResult<String> {
     let mut event_str = format!("{:?}", event.kind);
 
-    if let Some(path) = event.paths.get(0) {
+    if let Some(path) = event.paths.first() {
+    // if let Some(path) = event.paths.get(0) {  // pre - CARGO CLIPPY FIX
         let path_str = path.to_string_lossy().into_owned();
         event_str.push_str(&format!(": {}", path_str));
 

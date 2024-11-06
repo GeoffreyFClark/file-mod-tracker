@@ -88,8 +88,8 @@ fn test_format_event_file_not_found() {
     assert!(formatted_event.contains("Readonly: File Not Found"));
 }
 
-#[test]
-fn test_format_event_access_denied() {
-    // This test can cover scenarios where access to the file is denied, resulting in "Access Denied" messages.
-    assert!(true);
-}
+// #[test]
+// fn test_format_event_access_denied() {
+//     // This test can cover scenarios where access to the file is denied, resulting in "Access Denied" messages.
+//     assert!(true);
+// }
