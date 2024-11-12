@@ -1,7 +1,7 @@
 use crate::*;
 use std::ffi::OsStr;
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Read};
+use std::fs::{self, OpenOptions};
+use std::io::Read;
 use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use winapi::um::winnt::{

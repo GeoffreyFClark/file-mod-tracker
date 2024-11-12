@@ -169,6 +169,17 @@ fn log_to_file(message: &str) {
     }
 }
 
+/// Retrieves file metadata along with process ID as a HashMap
+fn get_file_metadata_with_pid(
+    file_path: &str,
+    pid: u32,
+) -> Result<HashMap<String, String>, std::io::Error> {
+    let mut metadata_map = get_file_metadata(file_path)?;
+    // Add the PID to metadata
+    metadata_map.insert("PID".to_string(), pid.to_string());
+    Ok(metadata_map)
+}
+
 /// Tauri command that starts monitoring file system events using the minifilter driver.
 #[tauri::command]
 fn start_monitoring(
@@ -217,6 +228,7 @@ fn start_monitoring(
         while let Ok(io_message) = rx_iomsgs.recv() {
             let filepath = Path::new(&io_message.filepathstr);
 
+            // Filter events based on the monitored directories
             if directories_clone.iter().any(|dir| {
                 let dir_path = Path::new(dir);
                 filepath.starts_with(dir_path)
@@ -229,18 +241,25 @@ fn start_monitoring(
                     continue;
                 }
 
-                // Build the event string
-                let mut event_str = format!("{}: {}", event_kind_str, path_str);
-
-                // Fetch and append file metadata
-                match get_file_metadata(&path_str) {
+                match get_file_metadata_with_pid(&path_str, io_message.pid) {
                     Ok(metadata) => {
                         let metadata_str = metadata
                             .iter()
                             .map(|(key, value)| format!("{}: {}", key, value))
                             .collect::<Vec<String>>()
                             .join(", ");
-                        event_str.push_str(&format!("\n{}", metadata_str));
+                        let event_str =
+                            format!("{}: {}\n{}", event_kind_str, path_str, metadata_str);
+
+
+                        log_to_file(&event_str);
+
+                        if app_handle_clone
+                            .emit_all("file-change-event", event_str)
+                            .is_err()
+                        {
+                            log_to_file("Failed to emit event to frontend");
+                        }
                     }
                     Err(e) => {
                         log_to_file(&format!(
@@ -248,17 +267,6 @@ fn start_monitoring(
                             path_str, e
                         ));
                     }
-                }
-
-                // Log to a debug file for investigation
-                log_to_file(&event_str);
-
-                // Emit the event to the Tauri frontend
-                if app_handle_clone
-                    .emit_all("file-change-event", event_str)
-                    .is_err()
-                {
-                    log_to_file("Failed to emit event to frontend");
                 }
             }
         }

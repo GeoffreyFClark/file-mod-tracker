@@ -177,6 +177,7 @@ function App() {
     const metadata = fileDetails[dir]?.[change] || {};
 
     const metadataFields = [
+      'PID',
       'Size',
       'Created',
       'Modified',

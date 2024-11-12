@@ -17,7 +17,9 @@ use windows::Win32::Storage::InstallableFileSystems::{
 use crate::fsfilter_rs::driver_comm::DriveType::{
     DriveCDRom, DriveFixed, DriveNoRootDir, DriveRamDisk, DriveRemote, DriveRemovable, DriveUnknown,
 };
-use crate::fsfilter_rs::driver_comm::IrpMajorOp::{IrpCreate, IrpNone, IrpRead, IrpSetInfo, IrpWrite};
+use crate::fsfilter_rs::driver_comm::IrpMajorOp::{
+    IrpCreate, IrpNone, IrpRead, IrpSetInfo, IrpWrite,
+};
 use crate::fsfilter_rs::shared_def;
 use crate::fsfilter_rs::shared_def::ReplyIrp;
 
@@ -67,6 +69,7 @@ impl Driver {
     /// If this fn is not used and the program has stopped, the handle is automatically closed,
     /// seemingly without any side-effects.
     #[inline]
+    #[allow(dead_code)]
     pub fn close_kernel_communication(&self) -> bool {
         unsafe { CloseHandle(self.handle).as_bool() }
     }
@@ -169,6 +172,7 @@ impl Driver {
     /// Ask the minifilter to kill all pids related to the given *gid*. Pids are killed in driver-mode
     /// by calls to `NtClose`.
     #[inline]
+    #[allow(dead_code)]
     pub fn try_kill(&self, gid: c_ulonglong) -> Result<HRESULT, windows::core::Error> {
         let mut killmsg = DriverComMessage {
             r#type: DriverComMessageType::KillGid as c_ulong,
@@ -235,13 +239,14 @@ pub enum IrpMajorOp {
     IrpSetInfo,
     /// Open a handle to a file object or device object.
     IrpCreate,
-    /// File object handle has been closed
-    IrpCleanUp,
+    // File object handle has been closed
+    // IrpCleanUp,
 }
 
 impl IrpMajorOp {
     #[inline]
     #[must_use]
+    #[allow(dead_code)]
     pub fn from_byte(b: u8) -> Self {
         match b {
             // 0 => IrpNone,
@@ -257,6 +262,7 @@ impl IrpMajorOp {
 /// See [`IOMessage`](crate::shared_def::IOMessage) struct and
 /// [this doc](https://docs.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getdrivetypea).
 #[repr(C)]
+#[allow(dead_code)]
 pub enum DriveType {
     /// The drive type cannot be determined.
     DriveUnknown,
@@ -281,6 +287,7 @@ impl DriveType {
     /// Will panic if drive path is invalid.
     #[inline]
     #[must_use]
+    #[allow(dead_code)]
     pub fn from_filepath(filepath: &str) -> Self {
         let mut drive_type = 1u32;
         if !filepath.is_empty() {

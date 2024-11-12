@@ -106,7 +106,11 @@ impl UnicodeString {
 
             // Handle extension
             let extension_str = String::from_utf16_lossy(
-                &extension.iter().take_while(|&&c| c != 0).cloned().collect::<Vec<_>>(),
+                &extension
+                    .iter()
+                    .take_while(|&&c| c != 0)
+                    .cloned()
+                    .collect::<Vec<_>>(),
             );
 
             if !path_str.ends_with(&extension_str) && !extension_str.is_empty() {
@@ -118,7 +122,6 @@ impl UnicodeString {
         }
     }
 }
-
 
 impl fmt::Display for UnicodeString {
     #[inline]
@@ -230,6 +233,7 @@ impl IOMessage {
     /// Opens an existing local process object to retrieve the name of the executable file for the
     /// specified process.
     #[inline]
+    #[allow(dead_code)] // though this function is not used, it is kept for future use
     pub fn exepath(&mut self) {
         let pid = self.pid;
         unsafe {

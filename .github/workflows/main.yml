@@ -45,5 +45,5 @@ jobs:
       uses: Swatinem/rust-cache@v2
     - name: C++ Build Tools
       uses: microsoft/setup-msbuild@v1.0.2
-    - name: FAILURE TO RETRIEVE METADATA (FILE NOT FOUND) TEST
-      run: cargo test --manifest-path ./src-tauri/Cargo.toml -- tests::test_format_event --exact --show-output
+    - name: Run Rust tests
+      run: cargo test --manifest-path ./src-tauri/Cargo.toml -- --show-output

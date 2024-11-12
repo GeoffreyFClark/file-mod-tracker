@@ -4,3 +4,11 @@ src/components/*.tsx linguist-vendored
 src/components/*.ts linguist-vendored
 src/pages/*.tsx linguist-vendored
 src/pages/*.ts linguist-vendored
+src/contexts/*.tsx linguist-vendored
+src/contexts/*.ts linguist-vendored
+src/data/*.tsx linguist-vendored
+src/data/*.ts linguist-vendored
+src/hooks/*.tsx linguist-vendored
+src/hooks/*.ts linguist-vendored
+src/utils/*.tsx linguist-vendored
+src/utils/*.ts linguist-vendored
