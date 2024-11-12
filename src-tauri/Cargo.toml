@@ -17,6 +17,23 @@ winapi = { version = "0.3", features = ["fileapi", "winnt", "minwinbase"] }
 chrono = "0.4"
 regex = "1.11.0"
 
+# fsfilter-rs dependencies
+sysinfo = "0.28.0"
+widestring = "1.0.1"
+serde = { version = "1.0.130", features = ["derive"] }
+num-derive = "0.3"
+num-traits = "0.2.14"
+wchar = "0.11.0"
+windows = { version = "0.44.0", features = [
+    "Win32_Storage_InstallableFileSystems",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Diagnostics_Debug",
+] }
+
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]

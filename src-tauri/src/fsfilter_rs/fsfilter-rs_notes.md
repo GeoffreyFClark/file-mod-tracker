@@ -1,5 +1,6 @@
 # PID (Process ID)
 To display the PID associating each file change with its originating process, a file system minifilter driver will be utilized.
+Source: https://github.com/SubconsciousCompute/fsfilter-rs
 
 ### To install and run fsfilter-rs:
 1. Clone the repository ```git clone https://github.com/SubconsciousCompute/fsfilter-rs```
@@ -7,10 +8,12 @@ To display the PID associating each file change with its originating process, a 
 3. Navigate to fsfilter-rs directory ```cd fsfilter-rs``` and run ```cargo build --release```
 4. Download https://github.com/SubconsciousCompute/fsfilter-rs/releases/latest/download/snFilter.zip and extract.
 5. Install the security certificate ```sfFilter.cer``` and change the default settings to Local Machine + place all certificates in the store: ```Trusted Root Certification Authorities```.
-6. Install snFiltern.inf
+6. Install snFiltern.inf (Driver will be at C:\Windows\System32\drivers\snFilter.sys)
 7. Run ```Bcdedit.exe -set TESTSIGNING ON```
-8. Restart computer.
+8. Restart computer (required for step 7 to take effect)
 9. Start the minifilter with ```sc start snFilter```. You can verify that it successfully started with the command ```Fltmc.exe``` to display running minifilters and checking if snFilter is listed.
 10. Now you can navigate to the fsfilter-rs directory and run ```cargo run --bin minifilter --release```
 
-You can find the driver at C:\Windows\System32\drivers\snFilter.sys
+When done:
+```sc stop snFilter```
+```Bcdedit.exe -set TESTSIGNING OFF```

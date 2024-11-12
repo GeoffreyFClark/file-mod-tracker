@@ -17,6 +17,7 @@ import {
   TableRow,
   Paper,
   Tooltip,
+  Checkbox,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { ToastContainer, toast } from 'react-toastify';
@@ -29,6 +30,7 @@ function App() {
   const [fileDetails, setFileDetails] = useState<
     Record<string, Record<string, Record<string, string>>>
   >({}); // Nested records to store metadata
+  const [excludeNotSet, setExcludeNotSet] = useState(false); 
 
   // Refs for scrolling behavior
   const listRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -54,7 +56,8 @@ function App() {
 
         // Split the event string into lines
         const [eventKindAndPath, ...rest] = change.split('\n');
-        const [, filePath] = eventKindAndPath.split(': ');
+        const [eventKind, filePath] = eventKindAndPath.split(': ');
+        if (excludeNotSet && eventKind === "NotSet") return;
 
         const fileInfo = rest.join('\n');
 
@@ -97,7 +100,7 @@ function App() {
     };
 
     setupListener();
-  }, [directories]);
+  }, [directories, excludeNotSet]);
 
   // Effect to handle auto-scrolling behavior
   useEffect(() => {
@@ -134,7 +137,7 @@ function App() {
   // Handler to start monitoring the selected directories
   const handleStartMonitoring = async () => {
     try {
-      await invoke('start_monitoring', { directories });
+      await invoke('start_monitoring', { directories, excludeNotSet }); 
       toast.success('Started monitoring directories');
     } catch (error) {
       console.error('Error starting monitoring:', error);
@@ -222,9 +225,22 @@ function App() {
 
           <Box sx={{ width: 20 }}></Box>
 
-          <Button variant="contained" color="secondary" onClick={handleStartMonitoring}>
+          <Button
+            variant="contained"
+            color="secondary"
+            onClick={handleStartMonitoring}
+            disabled={directories.length === 0}
+          >
             Start Monitoring
           </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Checkbox
+              checked={excludeNotSet}
+              onChange={() => setExcludeNotSet(!excludeNotSet)}
+              disabled={Object.keys(fileChanges).length > 0}
+            />
+            <Typography>Exclude background system operations</Typography>
+          </Box>
         </Box>
 
         {/* Display File Changes */}

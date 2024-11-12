@@ -2,19 +2,40 @@
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::metadata as get_metadata;
+use std::fs::OpenOptions;
 use std::io::ErrorKind;
+use std::io::Write;
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::sync::mpsc::channel;
 use std::thread;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
 use tauri::Manager;
+mod fsfilter_rs;
+use fsfilter_rs::driver_comm;
+use fsfilter_rs::shared_def::{CDriverMsgs, IOMessage};
 use winapi::um::fileapi::GetFileAttributesW;
 use winapi::um::winnt::{
     FILE_ATTRIBUTE_ENCRYPTED, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_TEMPORARY,
 };
+
+/// Converts the `file_change` code to a human-readable string.
+fn file_change_to_string(file_change: u8) -> &'static str {
+    match file_change {
+        0 => "NotSet",
+        1 => "OpenDirectory",
+        2 => "Write",
+        3 => "NewFile",
+        4 => "RenameFile",
+        5 => "ExtensionChanged",
+        6 => "DeleteFile",
+        7 => "DeleteNewFile",
+        8 => "OverwriteFile",
+        _ => "Unknown",
+    }
+}
 
 /// Retrieves file attributes for a given path using `GetFileAttributesW` from winapi,
 /// converting the path to UTF-16. Returns the attribute bitmask (`u32`) or an error message.
@@ -131,67 +152,116 @@ fn get_file_metadata(file_path: &str) -> Result<HashMap<String, String>, std::io
     Ok(metadata_map)
 }
 
-/// Formats a file's metadata for a given file change event, converting it into a string.
-fn format_event(event: &Event) -> NotifyResult<String> {
-    let mut event_str = format!("{:?}", event.kind);
+/// function to log messages to `debug_output.txt`
+fn log_to_file(message: &str) {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("debug_output.txt")
+        .expect("Cannot open or create debug_output.txt");
 
-    if let Some(path) = event.paths.first() {
-    // if let Some(path) = event.paths.get(0) {  // pre - CARGO CLIPPY FIX
-        let path_str = path.to_string_lossy().into_owned();
-        event_str.push_str(&format!(": {}", path_str));
-
-        // Fetch and append file metadata
-        match get_file_metadata(&path_str) {
-            Ok(metadata) => {
-                let metadata_str = metadata
-                    .iter()
-                    .map(|(key, value)| format!("{}: {}", key, value))
-                    .collect::<Vec<String>>()
-                    .join(", ");
-                event_str.push_str(&format!("\n{}", metadata_str));
-            }
-            Err(e) => {
-                println!("Error retrieving metadata for {}: {}", path_str, e);
-            }
-        }
+    if let Err(e) = writeln!(file, "{}", message) {
+        eprintln!("Couldn't write to file: {}", e);
     }
-    Ok(event_str)
+
+    if let Err(e) = file.flush() {
+        eprintln!("Couldn't flush file: {}", e);
+    }
 }
 
-/// Tauri command that starts monitoring specified directories for file system changes,
-/// emitting events to the frontend. Runs in a separate thread.
+/// Tauri command that starts monitoring file system events using the minifilter driver.
 #[tauri::command]
-fn start_monitoring(directories: Vec<String>, app_handle: tauri::AppHandle) -> Result<(), String> {
-    println!("Start monitoring of directories: {:?}", directories);
+fn start_monitoring(
+    directories: Vec<String>,
+    exclude_not_set: bool,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    log_to_file(&format!(
+        "Starting file monitoring for directories: {:?}, Exclude NotSet: {}",
+        directories, exclude_not_set
+    ));
+    let driver = driver_comm::Driver::open_kernel_driver_com().map_err(|_| {
+        "Failed to open driver communication. Is the minifilter started?".to_string()
+    })?;
+    driver
+        .driver_set_app_pid()
+        .map_err(|_| "Failed to set driver app pid".to_string())?;
 
-    let (tx, rx) = channel();
+    let mut vecnew: Vec<u8> = Vec::with_capacity(65536);
+    let (tx_iomsgs, rx_iomsgs) = channel::<IOMessage>();
 
-    let mut watcher: RecommendedWatcher =
-        Watcher::new(tx, Config::default()).map_err(|e| e.to_string())?;
-
-    thread::spawn(move || {
-        for dir in directories {
-            if let Err(e) = watcher.watch(Path::new(&dir), RecursiveMode::Recursive) {
-                println!("Failed to watch directory {}: {}", dir, e);
-                return;
-            }
-        }
-
-        println!("Monitoring thread started");
-        while let Ok(event_result) = rx.recv() {
-            match event_result {
-                Ok(event) => {
-                    if let Ok(event_str) = format_event(&event) {
-                        println!("File event detected: {}", event_str);
-                        if let Err(e) = app_handle.emit_all("file-change-event", event_str) {
-                            println!("Failed to emit event: {}", e);
-                        }
+    // Thread to retrieve file events from the minifilter driver
+    thread::spawn(move || loop {
+        if let Some(reply_irp) = driver.get_irp(&mut vecnew) {
+            if reply_irp.num_ops > 0 {
+                for drivermsg in CDriverMsgs::new(&reply_irp) {
+                    let iomsg = IOMessage::from(&drivermsg);
+                    if tx_iomsgs.send(iomsg).is_err() {
+                        log_to_file("Error sending IOMessage");
                     }
                 }
-                Err(e) => println!("Watch error: {:?}", e),
+            } else {
+                thread::sleep(Duration::from_millis(2));
+            }
+        } else {
+            log_to_file("Failed to receive driver message");
+            break;
+        }
+    });
+
+    let app_handle_clone = app_handle.clone();
+    let directories_clone = directories.clone();
+
+    // Thread to handle received `IOMessage`s and emit events to the frontend
+    thread::spawn(move || {
+        while let Ok(io_message) = rx_iomsgs.recv() {
+            let filepath = Path::new(&io_message.filepathstr);
+
+            if directories_clone.iter().any(|dir| {
+                let dir_path = Path::new(dir);
+                filepath.starts_with(dir_path)
+            }) {
+                let path_str = io_message.filepathstr.clone();
+                let event_kind_str = file_change_to_string(io_message.file_change);
+
+                // Exclude "NotSet" events if the exclude_not_set option is true
+                if exclude_not_set && event_kind_str == "NotSet" {
+                    continue;
+                }
+
+                // Build the event string
+                let mut event_str = format!("{}: {}", event_kind_str, path_str);
+
+                // Fetch and append file metadata
+                match get_file_metadata(&path_str) {
+                    Ok(metadata) => {
+                        let metadata_str = metadata
+                            .iter()
+                            .map(|(key, value)| format!("{}: {}", key, value))
+                            .collect::<Vec<String>>()
+                            .join(", ");
+                        event_str.push_str(&format!("\n{}", metadata_str));
+                    }
+                    Err(e) => {
+                        log_to_file(&format!(
+                            "Error retrieving metadata for {}: {}",
+                            path_str, e
+                        ));
+                    }
+                }
+
+                // Log to a debug file for investigation
+                log_to_file(&event_str);
+
+                // Emit the event to the Tauri frontend
+                if app_handle_clone
+                    .emit_all("file-change-event", event_str)
+                    .is_err()
+                {
+                    log_to_file("Failed to emit event to frontend");
+                }
             }
         }
-        println!("Exiting the monitoring thread.");
     });
 
     Ok(())
