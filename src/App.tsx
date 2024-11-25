@@ -1,113 +1,61 @@
 import React, { useMemo, useEffect } from 'react';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import { FileMonitorProvider, useFileMonitorContext } from './contexts/FileMonitorContext';
 import { RegistryMonitorProvider, useRegistryMonitorContext } from './contexts/RegistryMonitorContext';
-import Tabs from './components/Tabs';
-import { 
-  HomeIcon, 
-  DocumentTextIcon, 
-  BookmarkIcon, 
-  EyeIcon, 
-  Cog6ToothIcon 
-} from '@heroicons/react/24/outline';
-
+import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
-import Saved from './pages/Saved';
 import Detections from './pages/Detections';
 import Settings from './pages/Settings';
+import { appWindow } from '@tauri-apps/api/window';
 
 const ClearStorageOnMount: React.FC = () => {
-  const { clearStorage} = useRegistryMonitorContext();
+  const { clearStorage } = useRegistryMonitorContext();
+  const { resetDirectoryStates } = useFileMonitorContext();
+  const hasCleared = React.useRef(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      console.log('[ClearStorageOnMount] Clearing registry storage on app launch');
+    if (!hasCleared.current) {
+      // console.log('[ClearStorageOnMount] Clearing registry storage on app launch');
       clearStorage();
-    }, 0);
-
-    return () => clearTimeout(timer);
-  }, [clearStorage]);
+      // console.log('[ClearStorageOnMount] Resetting directory states on app launch');
+      resetDirectoryStates();
+      hasCleared.current = true;
+    }
+  }, []);
 
   return null;
 };
 
-const DataListener: React.FC = () => {
-  const { tableData, directories } = useFileMonitorContext();
-  const { isMonitoring, registryEvents, registryTableData } = useRegistryMonitorContext();
 
-  // File monitoring logs
-  useEffect(() => {
-    console.log('FileMonitor tableData updated:', tableData);
-  }, [tableData]);
-
-  useEffect(() => {
-    console.log('FileMonitor directories updated:', directories);
-  }, [directories]);
-
- // Registry monitoring logs
- useEffect(() => {
-  console.log('Registry monitoring status:', isMonitoring);
-}, [isMonitoring]);
-
-useEffect(() => {
-  console.log('Registry table data updated:', registryTableData);
-}, [registryTableData]);
-
-useEffect(() => {
-  if (registryEvents.length > 0) {
-    const latestEvent = registryEvents[registryEvents.length - 1];
-    console.log('New registry event:', {
-      type: latestEvent.type,
-      key: latestEvent.key,
-      value: latestEvent.value,
-      previousData: latestEvent.previousData,
-      newData: latestEvent.newData,
-      timestamp: latestEvent.timestamp
-    });
-  }
-}, [registryEvents]);
-
-return null;
-};
-
-  const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
-  console.log('ContentRenderer rendering, selectedItem:', selectedItem);
-
+const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
   const memoizedContent = useMemo(() => ({
-    Dashboard: <Dashboard />,
+    Home: <Dashboard />,
     Logs: <Logs />,
-    Saved: <Saved />,
     Detections: <Detections />,
     Settings: <Settings />,
+    // Map other components as needed based on your sidebar icons
   }), []);
 
-  const content = memoizedContent[selectedItem as keyof typeof memoizedContent] || memoizedContent.Dashboard;
+  const content = memoizedContent[selectedItem as keyof typeof memoizedContent] || memoizedContent.Home;
 
-  return <div className="px-6 py-6 transition-all duration-300 ease-in-out">{content}</div>;
+  return (
+    <div className="p-6 pt-12 transition-all duration-300 ease-in-out">
+      {content}
+    </div>
+  );
 });
 
 ContentRenderer.displayName = 'ContentRenderer';
 
 function AppContent() {
-  const { selectedItem, setSelectedItem } = useNavigation();
-
-  console.log('AppContent rendering');
-
-  const tabs = useMemo(() => [
-    { name: 'Dashboard', current: selectedItem === 'Dashboard', icon: HomeIcon },
-    { name: 'Logs', current: selectedItem === 'Logs', icon: DocumentTextIcon },
-    { name: 'Saved', current: selectedItem === 'Saved', icon: BookmarkIcon },
-    { name: 'Detections', current: selectedItem === 'Detections', icon: EyeIcon },
-    { name: 'Settings', current: selectedItem === 'Settings', icon: Cog6ToothIcon },
-  ], [selectedItem]);
+  const { selectedItem } = useNavigation();
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="sticky top-0 bg-white z-50 shadow">
-        <Tabs tabs={tabs} onTabChange={setSelectedItem} />
-      </div>
-      <div className="flex-grow container mx-auto mt-4 px-4">
+    <div className="flex h-screen w-full">
+      <Sidebar />
+      <div className="flex-1 overflow-auto hidden-scrollbar">
         <ContentRenderer selectedItem={selectedItem} />
       </div>
     </div>
@@ -115,18 +63,20 @@ function AppContent() {
 }
 
 function App() {
-  console.log('App component rendering');
-
+  useEffect(() => {
+    appWindow.center();
+  }, []);
   return (
-    <NavigationProvider>
-      <RegistryMonitorProvider>
-        <FileMonitorProvider>
-          <ClearStorageOnMount />
-          <DataListener />
-          <AppContent />
-        </FileMonitorProvider>
-      </RegistryMonitorProvider>
-    </NavigationProvider>
+    <SettingsProvider>
+      <NavigationProvider>
+        <RegistryMonitorProvider>
+          <FileMonitorProvider>
+            <ClearStorageOnMount />
+            <AppContent />
+          </FileMonitorProvider>
+        </RegistryMonitorProvider>
+      </NavigationProvider>
+    </SettingsProvider>
   );
 }
 

@@ -2,100 +2,275 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+	font-family: 'Inter';
+	src: url('./assets/fonts/Inter-Regular.otf') format('opentype');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('./assets/fonts/Inter-Medium.otf') format('opentype');
+	font-weight: 500;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('./assets/fonts/Inter-SemiBold.otf') format('opentype');
+	font-weight: 600;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'Inter';
+	src: url('./assets/fonts/Inter-Bold.otf') format('opentype');
+	font-weight: 700;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'FiraCode';
+	src: url('./assets/fonts/FiraCode-Regular.ttf');
+	font-weight: 400;
+	font-style: normal;
+}
 
 :root {
-  font-family: Inter, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-
-  overflow: scroll !important;
-  scrollbar-width: none !important; /* Firefox */
-  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
-
+	--app-primary: #1F1F33;
+	--app-secondary: #171726;
+	--app-green: #2DDF95;
+	--app-blue: #B6C4FF;
+	--color-app: rgba(255, 255, 255, 0.87);
+	--color-disabled: rgba(255, 255, 255, 0.37);
+	font-family: Inter, sans-serif;
+	color: var(--color-app);
+	background-color: var(--app-secondary);
+	font-size: 16px;
+	line-height: 24px;
+	font-weight: 400;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-text-size-adjust: 100%;
 }
 
-@font-face {
-  font-family: 'Inter';
-  src: url('./assets/fonts/Inter-Regular.otf') format('woff2');
-  font-weight: normal;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('./assets/fonts/Inter-Medium.otf') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('./assets/fonts/Inter-SemiBold.otf') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Inter';
-  src: url('./assets/fonts/Inter-Bold.otf') format('woff2');
-  font-weight: 700;
-  font-style: normal;
+body {
+	overflow: auto;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
 }
 
-.sideBarPurple:hover {
-  color: #4f46e5 !important; /* This ensures the hover effect doesn't change the color */
+body::-webkit-scrollbar {
+	display: none;
 }
 
-.sideBarPurple.selected:hover {
-  color: #4f46e5 !important; /* This ensures the hover effect doesn't change the color */
+.hidden-scrollbar {
+	scrollbar-width: none;
+
+	-ms-overflow-style: none;
 }
 
-.breadcrumbsBar{
-  left: 280px;
+.hidden-scrollbar::-webkit-scrollbar {
+	display: none;
 }
 
-.dashboardAction:hover {
-  color: inherit !important;
-  /* This ensures the hover effect doesn't change the color */
+.bg-app {
+	background-color: var(--app-primary);
+	;
+	color: var(--color-app);
 }
 
-.dashboardAction.selected:hover {
-  color: inherit !important;
-  /* This ensures the hover effect doesn't change the color */
+.bg-secondary {
+	background-color: var(--app-secondary)
 }
 
+.bg-disabled {
+	background-color: var(--color-disabled);
+}
+
+.color-app {
+	color: var(--color-app);
+}
+
+.color-disabled {
+	color: var(--color-disabled);
+}
+
+.color-outline {
+	border-color: #535362;
+	border: 1px solid #535362;
+}
+
+.dashed{
+	border-style: dashed !important;
+}
+
+.border-hover:hover {
+	border-color: var(--app-green)
+}
+
+.border-bg-app {
+	border-color: var(--app-primary) !important;
+}
+
+.border-tabs {
+	border-bottom: 1px solid #34343A !important;
+}
+
+.codeText {
+	font-family: FiraCode, sans-serif;
+}
 
 .modal-background {
-  --tw-bg-opacity: 0.5 !important;
-}
-
-.css-4bfq6k-MuiButtonBase-root-MuiTab-root.Mui-selected {
-  color: #6875F5 !important;
-}
-.css-1sj2jcg-MuiTabs-indicator {
-  background-color: #6875F5 !important;
+	--tw-bg-opacity: 0.5 !important;
 }
 
 
 @media (min-width: 1536px) {
-  .container {
-      max-width: 100% !important;
-  }
+	.container {
+		max-width: 100% !important;
+	}
 }
 
-body.hidden-scrollbar {
-  overflow: scroll !important;
-  scrollbar-width: none !important; /* Firefox */
-  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+.sidebar {
+	width: 84px;
+	background-color: var(--app-primary);
+	;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 }
 
-body.hidden-scrollbar::-webkit-scrollbar {
-  display: none !important; /* Safari and Chrome */
+.logo-wrapper {
+	margin-top: 26px;
+}
+
+.app-green {
+	color: var(--app-green)
+}
+
+.app-blue {
+	color: var(--app-blue)
+}
+
+.semibold{
+	font-weight: 600 !important;
+}
+
+.sm{
+	font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+}
+
+.bg-app-blue {
+	background-color: var(--app-blue);
+}
+
+.focus\:bg-app-blue:focus {
+	--tw-ring-opacity: 1;
+	--tw-ring-color: rgb(182 196 255 / var(--tw-ring-opacity))
+}
+
+.focus\:border-indigo-500:focus {
+	border-color: var(--app-blue) !important;
+	border-width: 1px !important;
+}
+
+.bg-green {
+	background-color: var(--app-green);
+}
+
+.logo {
+	width: 42px;
+	height: 42px;
+	color: var(--app-green);
+	cursor: crosshair;
+}
+
+.icon.selected {
+	color: var(--app-green);
+}
+
+
+.icon-list {
+	margin-top: 42px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+}
+
+.icon-wrapper {
+	width: 50px;
+	height: 50px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	border-radius: 50%;
+	background-color: transparent;
+	transition: background-color 0.3s ease-in-out;
+}
+
+
+.icon {
+	font-size: 24px;
+	color: #C6C6D0;
+	transition: color 0.3s ease-in-out;
+}
+
+
+.icon-wrapper:hover .icon:not(.selected) {
+	color: #FFFFFF;
+	cursor: pointer;
+}
+
+.icon-wrapper.selected {
+	background-color: #414659;
+}
+
+
+[type='text']:focus {
+	outline: 2px solid transparent;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 0px #ffffff, 0 0 0 1px var(--app-blue);
+}
+
+.app-button {
+	transition: all 0.150s;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-button:hover {
+	border-color: var(--app-green);
+}
+
+.filePath {
+	cursor: pointer;
+	-webkit-transition: all 0.1s ease-out;
+	-moz-transition: all 0.1s ease-out;
+	transition: all 0.1s ease-out;
+}
+
+.filePath:hover {
+	color: var(--app-green);
+	text-decoration: underline;
+}
+
+.css-bwo91o-MuiList-root-MuiMenu-list {
+	background-color: var(--app-primary) !important;
+}
+.css-ueny2a-MuiTypography-root{
+	color: var(--color-app) !important;
+}
+
+.css-1ya4y88-MuiButtonBase-root-MuiSwitch-switchBase.Mui-checked{
+	color: var(--app-blue) !important;
+}
+
+.css-1ya4y88-MuiButtonBase-root-MuiSwitch-switchBase.Mui-checked+.MuiSwitch-track {
+	background-color: var(--app-blue) !important;
 }

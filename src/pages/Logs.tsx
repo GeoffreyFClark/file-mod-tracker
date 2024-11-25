@@ -4,7 +4,7 @@ import { useRegistryMonitorContext } from '../contexts/RegistryMonitorContext';
 import MUITable from '../components/MUITable';
 import RegistryMUITable from '../components/RegistryMUITable';
 import { Tabs, Tab, Box } from '@mui/material';
-import { FolderOpen, ListAlt } from '@mui/icons-material';
+import { DARK_TEXT_SELECTED, DARK_TEXT_UNSELECTED } from '../utils/constants';
 
 const Logs: React.FC = () => {
   const [currentTab, setCurrentTab] = useState(0);
@@ -16,35 +16,47 @@ const Logs: React.FC = () => {
   };
 
   return (
-    <div className='flex flex-col gap-2'>
-      <Box sx={{ borderBottom: 1, 
-        borderColor: 'divider',
-        padding: 0, }}
-        className="bg-white rounded overflow-hidden m-4"
-        >
+    <>
+    <h2 className="text-2xl font-semibold mb-6 app-green">Logs</h2>
+    <div className='flex flex-col'>
+      <Box 
+        sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider',
+          padding: 0,
+          '& .MuiTabs-indicator': {
+            backgroundColor: '#B6C4FF',
+          },
+          '& .MuiTab-root': {
+            color: DARK_TEXT_UNSELECTED,
+            '&.Mui-selected': {
+              color: DARK_TEXT_SELECTED,
+            }
+          }
+        }}
+        className="overflow-hidden mb-6 border-tabs"
+      >
         <Tabs 
           value={currentTab} 
           onChange={handleTabChange}
           aria-label="monitor tabs"
-          variant="fullWidth"
         >
           <Tab 
-            icon={<FolderOpen />} 
             label="File System" 
-            iconPosition="start"
           />
           <Tab 
-            icon={<ListAlt />} 
             label="Registry" 
-            iconPosition="start"
+          />
+          <Tab 
+            label="Import" 
           />
         </Tabs>
       </Box>
 
-      <div className='p-4'>
+      <div>
         {currentTab === 0 && (
           <div className='transition-opacity duration-200 ease-in-out'>
-            <MUITable data={fileTableData} />
+            <MUITable data={fileTableData} darkMode={true}/>
           </div>
         )}
         {currentTab === 1 && (
@@ -54,6 +66,7 @@ const Logs: React.FC = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 

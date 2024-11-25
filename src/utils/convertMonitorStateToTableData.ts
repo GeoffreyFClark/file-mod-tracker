@@ -20,9 +20,9 @@ export const convertMonitorStateToTableData = (state: FileMonitorState): Watcher
           Path: filePath,
           PID: '*',
           Type: '*',
-          Timestamp: details.Timestamp || new Date().toISOString(),
+          Timestamp: details.Time,
           Changes: 0,
-          Size: '*',  // Moved this line up
+          Size: '*',
           entries: [],
         };
         watcherDataMap[watcher].push(parentEntry);
@@ -39,8 +39,13 @@ export const convertMonitorStateToTableData = (state: FileMonitorState): Watcher
             Path: entry.Path,
             PID: entry.PID || 'N/A',
             Type: entry.Type || 'N/A',
+            IRPOperation: entry.IRPOperation || "N/A",
             Timestamp: entry.Timestamp,
-            Size: entry.Size || 'N/A',  // Changed this line
+            Size: entry.Size || 'N/A',
+            GID: entry.GID || 'N/A',
+            Metadata: entry.Metadata || {},
+            process_name: entry.process_name,
+            process_path: entry.process_path
           };
           parentEntry!.entries.push(newEntry);
         });
@@ -50,8 +55,13 @@ export const convertMonitorStateToTableData = (state: FileMonitorState): Watcher
           Path: filePath,
           PID: details.PID || 'N/A',
           Type: details.Type || 'N/A',
-          Timestamp: details.Timestamp || new Date().toISOString(),
-          Size: details.Size || 'N/A',  // Changed this line
+          IRPOperation: details.IRPOperation || "N/A",
+          Timestamp: details.Time,
+          Size: details.Size || 'N/A', 
+          GID: details.GID || 'N/A',
+          Metadata: details.Metadata || {},
+          process_name: details.process_name,
+          process_path: details.process_path,
         };
         parentEntry.entries.push(newEntry);
       }

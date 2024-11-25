@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileMonitor, FileMonitorState } from './monitor';
 import { convertMonitorStateToTableData } from '../utils/convertMonitorStateToTableData';
+import { fileLogger } from '../utils/Logger';
 
 const useFileMonitor = () => {
   const [monitorState, setMonitorState] = useState<FileMonitorState>({
@@ -18,14 +19,33 @@ const useFileMonitor = () => {
     }
   }, []);
 
-  const tableData = convertMonitorStateToTableData(monitorState);
-
-  const addDirectory = useCallback(async (): Promise<string | undefined> => {
-    if (fileMonitorRef.current) {
-      return fileMonitorRef.current.addDirectory();
-    }
-    return undefined;
+  // Force write logs on unmount
+  useEffect(() => {
+    return () => {
+      if (tableData.length > 0) {
+        fileLogger.forceWrite().catch(error => {
+          console.error('Error writing final log:', error);
+        });
+      }
+    };
   }, []);
+
+  const tableData = convertMonitorStateToTableData(monitorState);
+  
+  // Log table data whenever it changes
+  useEffect(() => {
+    console.log('tableData changed:', {
+      length: tableData?.length,
+      isArray: Array.isArray(tableData),
+      sample: tableData?.[0]
+    });
+
+    if (tableData && Array.isArray(tableData) && tableData.length > 0) {
+      fileLogger.logTableData(tableData).catch(error => {
+        console.error('Error logging table data:', error);
+      });
+    }
+  }, [tableData]);
 
   const addDirectoryByPath = useCallback(async (directory: string): Promise<void> => {
     if (fileMonitorRef.current) {
@@ -54,7 +74,6 @@ const useFileMonitor = () => {
 
   return {
     tableData,
-    addDirectory,
     addDirectoryByPath,
     removeDirectory,
     startMonitoring,

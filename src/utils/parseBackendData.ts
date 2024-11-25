@@ -1,11 +1,11 @@
 // src/utils/parseBackendData.ts
 export interface DataRow {
   changes?: number; // Make changes optional
-  path: string;
-  pid: string;
-  type: string;
-  size: string;
-  timestamp: string;
+  Path: string;
+  PID: string;
+  Type: string;
+  Size: string;
+  Timestamp: string;
   [key: string]: string | number | undefined;
 }
 
@@ -27,11 +27,11 @@ export function parseBackendDataUnique(backendData: any[]): DataRow[] {
 
       const dataRow: DataRow = {
         changes: file.entries.length, // Use entries length for changes count
-        path: path,
-        pid: file.PID || '',
-        type: file.Type || '',
-        size: file.Size || '',
-        timestamp: latestTimestamp,
+        Path: path,
+        PID: file.PID || '',
+        Type: file.Type || '',
+        Size: file.Size || '',
+        Timestamp: latestTimestamp,
       };
 
       if (!existingDataRow) {
@@ -39,8 +39,8 @@ export function parseBackendDataUnique(backendData: any[]): DataRow[] {
       } else {
         // Update existing row with new changes count and most recent timestamp
         existingDataRow.changes = (existingDataRow.changes || 0) + file.entries.length;
-        if (new Date(latestTimestamp) > new Date(existingDataRow.timestamp)) {
-          existingDataRow.timestamp = latestTimestamp;
+        if (new Date(latestTimestamp) > new Date(existingDataRow.Timestamp)) {
+          existingDataRow.Timestamp = latestTimestamp;
         }
         dataRowsMap.set(path, existingDataRow);
       }
@@ -57,12 +57,16 @@ export function parseBackendDataAll(backendData: any[]): DataRow[] {
     watcher.files.forEach((file: any) => {
       file.entries.forEach((entry: any) => {
         const dataRow: DataRow = {
-          path: entry.Path || '',
-          pid: entry.PID || '',
-          type: entry.Type || '',
-          size: entry.Size || '',
-          timestamp: entry.Timestamp || '',
-          // 'Changes' is not present in entries
+          Path: entry.Path,
+          PID: entry.PID,
+          Type: entry.Type,
+          IRPOperation: entry.IRPOperation,
+          Timestamp: entry.Timestamp,
+          Size: entry.Size,
+          GID: entry.GID,
+          Metadata: entry.Metadata,
+          process_name: entry.process_name,
+          process_path: entry.process_path
         };
         dataRows.push(dataRow);
       });
@@ -71,3 +75,4 @@ export function parseBackendDataAll(backendData: any[]): DataRow[] {
 
   return dataRows;
 }
+

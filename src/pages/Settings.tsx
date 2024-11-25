@@ -1,80 +1,45 @@
+// Settings.tsx
 import React, { useState } from 'react';
-import { useFileMonitorContext } from '../contexts/FileMonitorContext';
-import DirectoryCard from '../components/DirectoryCard';
+import TabbedPageLayout from '../components/Tabs';
+import  FileSystemSettings from '../components/FileSystemSettings';
+import  RegistrySettings  from '../components/RegistrySettings';
+import GeneralSettings from '../components/GeneralSettings';
 
 const Settings: React.FC = () => {
-  const [directoryPath, setDirectoryPath] = useState<string>('');
-  const { 
-    addDirectoryByPath, 
-    toggleDirectoryState,
-    deleteDirectory,
-    startMonitoring, 
-    directories,
-  } = useFileMonitorContext();
+  // Keep the original localStorage initialization here
+  const [storedRegistryKeys, setStoredRegistryKeys] = useState<string[]>(() => {
+    const saved = localStorage.getItem('storedRegistryKeys');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const handleAddDirectory = async () => {
-    const trimmedPath = directoryPath.trim();
-    if (trimmedPath) { 
-      await addDirectoryByPath(trimmedPath);
-      setDirectoryPath('');
-    }
-  };
-
-  const handleToggleMonitoring = async (directory: string) => {
-    await toggleDirectoryState(directory);
-  };
-
-  const handleDeleteDirectory = async (directory: string) => {
-    await deleteDirectory(directory);
-  };
+  // Still split the UI components for better organization
+  const fileSystemContent = <FileSystemSettings />;
+  const generalContent = <GeneralSettings/>;
+  const registryContent = (
+    <RegistrySettings
+      storedRegistryKeys={storedRegistryKeys}
+      setStoredRegistryKeys={setStoredRegistryKeys}
+    />
+  );
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-semibold mb-4">Settings</h2>
-      <div className="mb-4">
-        <label htmlFor="directory" className="block text-sm font-medium leading-6 text-gray-900">
-          Add Directory to Monitor
-        </label>
-        <div className="mt-2 flex">
-          <input
-            type="text"
-            name="directory"
-            id="directory"
-            value={directoryPath}
-            onChange={(e) => setDirectoryPath(e.target.value)}
-            className="flex-1 block w-full rounded-md border border-gray-300 py-1.5 px-3 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            placeholder="C:\path\to\directory"
-          />
-          <button
-            type="button"
-            onClick={handleAddDirectory}
-            className="ml-2 rounded-md bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-600 shadow-sm hover:bg-indigo-100"
-          >
-            Add
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-4">Monitored Directories</h3>
-        {directories.length === 0 ? (
-          <p className="text-gray-500">No directories added yet.</p>
-        ) : (
-          directories.map((directory) => (
-            <DirectoryCard
-              key={directory.path}
-              directory={{
-                path: directory.path,
-                isMonitored: directory.isEnabled
-              }}
-              onAdd={() => handleToggleMonitoring(directory.path)}
-              onRemove={() => handleToggleMonitoring(directory.path)}
-              onDelete={() => handleDeleteDirectory(directory.path)}
-            />
-          ))
-        )}
-      </div>
-    </div>
+    <TabbedPageLayout
+      title="Settings"
+      tabs={[
+        {
+          label: "File System",
+          content: fileSystemContent
+        },
+        {
+          label: "Registry",
+          content: registryContent
+        },
+        {
+          label: "General",
+          content: generalContent
+        }
+      ]}
+    />
   );
 };
 
