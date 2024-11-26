@@ -18,7 +18,6 @@ import {
   MenuItem,
   ThemeProvider,
 } from '@mui/material';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { RegistryTableDataRow, RegistryChangeEntry } from '../utils/types';
 import { generateCSV, downloadCSV } from '../utils/export';
@@ -33,7 +32,7 @@ import {
 import CustomCell from './CustomCell';
 import { registryActions } from '../utils/actions';
 import { createAppTheme } from '../utils/theme';
-
+import { ExportButton } from './ExportButton'
 
 // Columns for "keys" view mode
 const keysColumns: MRT_ColumnDef<RegistryTableDataRow>[] = [
@@ -287,36 +286,16 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
         >
           View Changes
         </Button>
-        <Button
-          disabled={Object.keys(rowSelectionMain).length === 0}
-          onClick={() => handleExportRows(mainTable.getSelectedRowModel().rows)}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&.Mui-disabled': {
-              color: darkMode ? DARK_TEXT_DISABLED : '#aaaaaa',
-            },
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export Selected
-        </Button>
-        <Button
-          onClick={handleExportData}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export All
-        </Button>
+        <ExportButton 
+          onClick={() => handleExportRows(mainTable.getSelectedRowModel().rows)} 
+          label="Export Selected" 
+          darkMode={darkMode} 
+      />
+        <ExportButton 
+          onClick={handleExportData} 
+          label="Export All" 
+          darkMode={darkMode} 
+      />
       </Box>
     ),
     muiTablePaperProps: {
@@ -389,36 +368,18 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
     paginationDisplayMode: 'pages',
     renderTopToolbarCustomActions: ({ table }) => (
       <Box sx={{ display: 'flex', gap: 2, p: 1, alignItems: 'center' }}>
-        <Button
-          onClick={handleModalExportData}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export All
-        </Button>
-        <Button
+
+        <ExportButton 
+          onClick={handleModalExportData} 
+          label="Export All" 
+          darkMode={darkMode} 
+      />
+      <ExportButton
           disabled={!table.getIsSomeRowsSelected()}
-          onClick={() => handleExportRows(table.getSelectedRowModel().rows)}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&.Mui-disabled': {
-              color: darkMode ? DARK_TEXT_DISABLED : '#aaaaaa',
-            },
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export Selected
-        </Button>
+          onClick={() => handleExportRows(table.getSelectedRowModel().rows)} 
+          label="Export Selected" 
+          darkMode={darkMode} 
+      />
       </Box>
     ),
     muiTablePaperProps: {

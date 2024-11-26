@@ -18,7 +18,6 @@ import {
   DialogActions,
   ThemeProvider,
 } from '@mui/material';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { generateCsv, download } from 'export-to-csv';
 import { DataRow, parseBackendDataUnique, parseBackendDataAll } from '../utils/parseBackendData';
@@ -35,6 +34,7 @@ import {
 import CustomCell from './CustomCell';
 import { filePathActions, processActions } from '../utils/actions';
 import { createAppTheme } from '../utils/theme';
+import { ExportButton } from './ExportButton'
 
 interface DirectoryData {
   watcherPath: string;
@@ -494,7 +494,7 @@ const handleExportData = () => {
           View Events
         </Button>
 
-        <Button
+      <ExportButton 
         disabled={Object.keys(rowSelectionMain).length === 0}
         onClick={() => {
           if (viewMode === 'directories') {
@@ -502,34 +502,15 @@ const handleExportData = () => {
           } else {
             handleExportRowsData(mainTable.getSelectedRowModel().rows as MRT_Row<DataRow>[]);
           }
-        }}
-        startIcon={<FileDownloadIcon />}
-        sx={{
-          backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-          color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-          '&.Mui-disabled': {
-            color: darkMode ? DARK_TEXT_DISABLED : '#aaaaaa',
-          },
-          '&:hover': {
-            backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-          },
-        }}
-      >
-        Export Selected
-      </Button>
-      <Button
-        onClick={handleExportData}
-        startIcon={<FileDownloadIcon />}
-        sx={{
-          backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-          color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-          '&:hover': {
-            backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-          },
-        }}
-      >
-        Export All
-      </Button>
+        }} 
+        label="Export Selected" 
+        darkMode={darkMode} 
+      />
+      <ExportButton 
+        onClick={handleExportData} 
+        label="Export All" 
+        darkMode={darkMode} 
+      />
     </Box>
     ),
     muiTablePaperProps: {
@@ -624,7 +605,8 @@ const handleExportData = () => {
     },
     renderTopToolbarCustomActions: ({ table }) => (
       <Box sx={{ display: 'flex', gap: '16px', padding: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <Button
+        <ExportButton 
+          disabled={!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
           onClick={() => {
             const selectedRows = table.getSelectedRowModel().rows.map(row => ({
               Path: row.original.Path,
@@ -646,22 +628,10 @@ const handleExportData = () => {
             const csv = generateCsv(csvConfig)(selectedRows);
             download(csvConfig)(csv);
           }}
-          disabled={!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&.Mui-disabled': {
-              color: darkMode ? DARK_TEXT_DISABLED : '#aaaaaa',
-            },
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export Selected
-        </Button>
-        <Button
+        label="Export Selected" 
+        darkMode={darkMode} 
+      />
+        <ExportButton 
           onClick={() => {
             const allRows = table.getRowModel().rows.map(row => ({
               Path: row.original.Path,
@@ -683,17 +653,9 @@ const handleExportData = () => {
             const csv = generateCsv(csvConfig)(allRows);
             download(csvConfig)(csv);
           }}
-          startIcon={<FileDownloadIcon />}
-          sx={{
-            backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-            color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-            '&:hover': {
-              backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-            },
-          }}
-        >
-          Export All
-        </Button>
+        label="Export All" 
+        darkMode={darkMode} 
+      />
       </Box>
     ),
     muiTablePaperProps: {
