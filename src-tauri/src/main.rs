@@ -375,9 +375,3 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use notify::{EventKind, event::ModifyKind, event::DataChange, event::Event};
-}
