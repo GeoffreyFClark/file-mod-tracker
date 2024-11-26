@@ -1,37 +1,48 @@
 import React from 'react';
+import TabbedPageLayout from '../components/Tabs';
 
-import DashboardStats from '../components/DashboardStats';
-import { DashboardData } from '../data/dashboardData';
+const Layout = () => {
+  return (
+    <div
+      className="flex flex-col gap-6 pb-6 overflow-hidden"
+      style={{ height: 'calc(100vh - 177px)' }}
+    >
+      <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
+        <div className="flex-[3] h-full bg-app rounded-lg shadow p-6 overflow-none">
 
-import ChangesChart from '../components/ChangesChart';
-// import ChangesData from '../data/ChangesData';
-import DetectionsChart from '../components/DetectionsChart';
-// import DetectionsData from '../data/DetectionsData';
+        </div>
+        <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
 
-import Investigate from '../components/Investigate';
+        </div>
+      </div>
+      <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
+        <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
+
+        </div>
+        <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
+ 
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const Dashboard: React.FC = () => {
   return (
-    <>
-      <div className="flex flex-col gap-4 p-4">
-
-        <DashboardStats stats={DashboardData} />
-
-        <div className="flex flex-col gap-4">
-
-          <div className="w-full">
-            <ChangesChart />
-          </div>
-
-          <div className="w-full">
-            <DetectionsChart />
-          </div>
-
-        </div>
-
-        <Investigate />
-      </div>
-    </>
+    <TabbedPageLayout
+      title="Home"
+      tabs={[
+        {
+          label: "File System",
+          content: <Layout/>
+        },
+        {
+          label: "Registry",
+          content: <Layout/>
+        }
+      ]}
+    />
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
+import React, { createContext, useContext, useCallback, useState, useMemo } from 'react';
 
 interface NavigationContextType {
   selectedItem: string;
@@ -8,15 +8,20 @@ interface NavigationContextType {
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [selectedItem, setSelectedItemState] = useState('Dashboard');
+  const [selectedItem, setSelectedItemState] = useState('Home');
 
   const setSelectedItem = useCallback((item: string) => {
     setSelectedItemState(item);
-    // Add any additional navigation logic here if needed
   }, []);
 
+  // Memoize the context value to ensure stable reference
+  const value = useMemo(() => ({
+    selectedItem,
+    setSelectedItem
+  }), [selectedItem, setSelectedItem]);
+
   return (
-    <NavigationContext.Provider value={{ selectedItem, setSelectedItem }}>
+    <NavigationContext.Provider value={value}>
       {children}
     </NavigationContext.Provider>
   );

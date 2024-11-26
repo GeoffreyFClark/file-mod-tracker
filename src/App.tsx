@@ -1,125 +1,82 @@
-
 import React, { useMemo, useEffect } from 'react';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { NavigationProvider, useNavigation } from './contexts/NavigationContext';
 import { FileMonitorProvider, useFileMonitorContext } from './contexts/FileMonitorContext';
-import Tabs from './components/Tabs';
-
-import { useState } from 'react';
-
-
-// Import Heroicons
-import { 
-  HomeIcon, 
-  DocumentTextIcon, 
-  BookmarkIcon, 
-  EyeIcon, 
-  Cog6ToothIcon 
-} from '@heroicons/react/24/outline'; // Use '/solid' for solid icons
-
+import { RegistryMonitorProvider, useRegistryMonitorContext } from './contexts/RegistryMonitorContext';
+import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
-import Saved from './pages/Saved';
 import Detections from './pages/Detections';
 import Settings from './pages/Settings';
+import { appWindow } from '@tauri-apps/api/window';
 
-
-// This component only listens for data changes
-const DataListener: React.FC = () => {
-  const { tableData, directories } = useFileMonitorContext();
-
-  useEffect(() => {
-    console.log('FileMonitor tableData updated:', tableData);
-  }, [tableData]);
+const ClearStorageOnMount: React.FC = () => {
+  const { clearStorage } = useRegistryMonitorContext();
+  const { resetDirectoryStates } = useFileMonitorContext();
+  const hasCleared = React.useRef(false);
 
   useEffect(() => {
-    console.log('FileMonitor directories updated:', directories);
-  }, [directories]);
+    if (!hasCleared.current) {
+      // console.log('[ClearStorageOnMount] Clearing registry storage on app launch');
+      clearStorage();
+      // console.log('[ClearStorageOnMount] Resetting directory states on app launch');
+      resetDirectoryStates();
+      hasCleared.current = true;
+    }
+  }, []);
 
-  return null; // This component doesn't render anything
+  return null;
 };
 
-// This component handles the rendering of content
-const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
-  console.log('ContentRenderer rendering, selectedItem:', selectedItem);
 
+const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ selectedItem }) => {
   const memoizedContent = useMemo(() => ({
-    Dashboard: <Dashboard />,
+    Home: <Dashboard />,
     Logs: <Logs />,
-    Saved: <Saved />,
     Detections: <Detections />,
     Settings: <Settings />,
+    // Map other components as needed based on your sidebar icons
   }), []);
 
-  const content = memoizedContent[selectedItem as keyof typeof memoizedContent] || memoizedContent.Dashboard;
+  const content = memoizedContent[selectedItem as keyof typeof memoizedContent] || memoizedContent.Home;
 
-  return <div className="px-6 py-6 transition-all duration-300 ease-in-out">{content}</div>;
+  return (
+    <div className="p-6 pt-12 transition-all duration-300 ease-in-out">
+      {content}
+    </div>
+  );
 });
 
 ContentRenderer.displayName = 'ContentRenderer';
 
 function AppContent() {
-  const { selectedItem, setSelectedItem } = useNavigation();
-
-  console.log('AppContent rendering');
-
-  // Define the tabs based on your application's navigation items
-  const tabs = useMemo(() => [
-    { name: 'Dashboard', current: selectedItem === 'Dashboard', icon: HomeIcon },
-    { name: 'Logs', current: selectedItem === 'Logs', icon: DocumentTextIcon },
-    { name: 'Saved', current: selectedItem === 'Saved', icon: BookmarkIcon },
-    { name: 'Detections', current: selectedItem === 'Detections', icon: EyeIcon },
-    { name: 'Settings', current: selectedItem === 'Settings', icon: Cog6ToothIcon },
-  ], [selectedItem]);
-
-function App() {
-  const [selectedItem, setSelectedItem] = useState('Dashboard');
-
-  // Conditionally render content based on the selected sidebar item
-  const renderContent = () => {
-    switch (selectedItem) {
-      case 'Dashboard':
-        return <Dashboard />;
-      case 'Directories':
-        return <Directories />;
-      case 'Logs':
-        return <Logs />;
-      case 'Saved':
-        return <Saved />;
-      case 'Detections':
-        return <Detections />;
-      case 'Settings':
-        return <Settings />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
+  const { selectedItem } = useNavigation();
 
   return (
-    <FileMonitorProvider>
-      <DataListener />
-      <div className="flex flex-col min-h-screen">
-        {/* Tabs Component */}
-        <div className="sticky top-0 bg-white z-50 shadow">
-          <Tabs tabs={tabs} onTabChange={setSelectedItem} />
-        </div>
-        
-        {/* Content Area */}
-        <div className="flex-grow container mx-auto mt-4 px-4">
-          <ContentRenderer selectedItem={selectedItem} />
-        </div>
+    <div className="flex h-screen w-full">
+      <Sidebar />
+      <div className="flex-1 overflow-auto hidden-scrollbar">
+        <ContentRenderer selectedItem={selectedItem} />
       </div>
-    </FileMonitorProvider>
+    </div>
   );
 }
 
 function App() {
-  console.log('App component rendering');
-
+  useEffect(() => {
+    appWindow.center();
+  }, []);
   return (
-    <NavigationProvider>
-      <AppContent />
-    </NavigationProvider>
+    <SettingsProvider>
+      <NavigationProvider>
+        <RegistryMonitorProvider>
+          <FileMonitorProvider>
+            <ClearStorageOnMount />
+            <AppContent />
+          </FileMonitorProvider>
+        </RegistryMonitorProvider>
+      </NavigationProvider>
+    </SettingsProvider>
   );
 }
 
