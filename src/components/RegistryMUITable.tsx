@@ -33,6 +33,7 @@ import {
 } from '../utils/constants';
 import CustomCell from './CustomCell';
 import { registryActions } from '../utils/actions';
+import { createAppTheme } from '../utils/theme';
 
 
 // Columns for "keys" view mode
@@ -138,79 +139,8 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
 
   // Create custom theme
   const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: darkMode ? 'dark' : 'light',
-          primary: {
-            main: '#90caf9',
-          },
-          secondary: {
-            main: '#f48fb1',
-          },
-          background: {
-            default: darkMode ? DARK_PRIMARY : '#ffffff',
-            paper: darkMode ? DARK_PRIMARY : '#ffffff',
-          },
-          text: {
-            primary: darkMode ? DARK_TEXT_SELECTED : '#000000',
-            secondary: darkMode ? '#b3b3b3' : '#666666',
-          },
-          info: {
-            main: darkMode ? '#90caf9' : '#0288d1',
-          },
-        },
-        components: {
-          MuiIconButton: {
-            styleOverrides: {
-              root: {
-                color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-              },
-            },
-          },
-          MuiButton: {
-            styleOverrides: {
-              root: {
-                color: darkMode ? DARK_TEXT_ENABLED : '#000000',
-              },
-            },
-          },
-          MuiCheckbox: {
-            styleOverrides: {
-              root: {
-                '&.Mui-checked': {
-                  color: DARK_TEXT_ENABLED,
-                },
-                '&.MuiCheckbox-indeterminate': {
-                  color: DARK_TEXT_ENABLED,
-                },
-              },
-            },
-          },
-          MuiInputLabel: {
-            styleOverrides: {
-              root: {
-                '&.Mui-focused': {
-                  color: DARK_TEXT_ENABLED,
-                },
-              },
-            },
-          },
-          MuiOutlinedInput: {
-            styleOverrides: {
-              root: {
-                '&.Mui-focused': {
-                  boxShadow: 'none',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: DARK_TEXT_ENABLED,
-                  },
-                },
-              },
-            },
-          },
-        },
-      }),
-    [darkMode],
+    () => createAppTheme({ darkMode }),
+    [darkMode]
   );
 
   const selectedEntries = useMemo(() => {
