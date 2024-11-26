@@ -29,12 +29,22 @@ const Sidebar: React.FC = () => {
         {navigationItems.map(({ id, Icon, tooltip }) => {
           const isSelected = selectedItem === id;
           const IconWrapper = (
-            <div 
-              className={`icon-wrapper ${isSelected ? 'selected' : ''}`}
-              onClick={() => setSelectedItem(id)}
-            >
-              <Icon className={`icon ${isSelected ? 'selected' : ''}`} />
-            </div>
+                <div 
+                  className={`icon-wrapper ${isSelected ? 'selected' : ''}`}
+                  onClick={() => setSelectedItem(id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedItem(id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={tooltip}
+                  aria-selected={isSelected}
+                >
+                  <Icon className={`icon ${isSelected ? 'selected' : ''}`} />
+                </div>
           );
 
           return isSelected ? (

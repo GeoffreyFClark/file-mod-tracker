@@ -32,8 +32,7 @@ const RegistryCard: React.FC<RegistryKeyProps> = ({ keyPath, isMonitored, onTogg
   return(
       <div
           className={classNames(
-            'shadow rounded-lg p-4 mb-4 flex justify-between items-center border-transparent border border-hover transition',
-            isMonitored ? 'bg-secondary' : 'bg-secondary'
+            'shadow rounded-lg p-4 mb-4 flex justify-between items-center border-transparent border border-hover transition bg-secondary',
           )}
         >
           <div className="flex items-center flex-grow mr-2">
