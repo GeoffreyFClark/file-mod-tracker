@@ -33,6 +33,7 @@ import CustomCell from './CustomCell';
 import { registryActions } from '../utils/actions';
 import { createAppTheme } from '../utils/theme';
 import { ExportButton } from './ExportButton'
+import { getCommonTableProps } from '../utils/tableStyles';
 
 // Columns for "keys" view mode
 const keysColumns: MRT_ColumnDef<RegistryTableDataRow>[] = [
@@ -298,12 +299,6 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
       />
       </Box>
     ),
-    muiTablePaperProps: {
-      sx: {
-        borderRadius: '.5rem',
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
     initialState: {
       pagination: { pageIndex: 0, pageSize: 25 },
       sorting: [
@@ -313,46 +308,7 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
         }
       ],
     },
-    // @ts-ignore
-    muiTableBodyRowProps: ({ row }) => ({
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        '&:hover': {
-          backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-        },
-      },
-    }),
-    // @ts-ignore
-    muiTableBodyCellProps: ({ cell }) => ({
-      sx: {
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        borderBottom: `1px solid ${darkMode ? '#404040' : '#e0e0e0'}`,
-      },
-    }),
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        fontWeight: 'bold',
-      },
-    },
-    muiTopToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiBottomToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiTableContainerProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
+    ...getCommonTableProps(darkMode),
   });
 
   const detailTable = useMaterialReactTable({
@@ -382,52 +338,7 @@ const RegistryMUITable: React.FC<RegistryMUITableProps> = ({ data, darkMode = tr
       />
       </Box>
     ),
-    muiTablePaperProps: {
-      sx: {
-        borderRadius: '.5rem',
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
-    // @ts-ignore
-    muiTableBodyRowProps: ({ row }) => ({
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        '&:hover': {
-          backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-        },
-      },
-    }),
-    // @ts-ignore
-    muiTableBodyCellProps: ({ cell }) => ({
-      sx: {
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        borderBottom: `1px solid ${darkMode ? '#404040' : '#e0e0e0'}`,
-      },
-    }),
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        fontWeight: 'bold',
-      },
-    },
-    muiTopToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiBottomToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiTableContainerProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
+    ...getCommonTableProps(darkMode),
     defaultColumn: {
       minSize: 40,
       maxSize: 1000,

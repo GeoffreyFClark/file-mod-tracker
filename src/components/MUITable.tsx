@@ -35,6 +35,7 @@ import CustomCell from './CustomCell';
 import { filePathActions, processActions } from '../utils/actions';
 import { createAppTheme } from '../utils/theme';
 import { ExportButton } from './ExportButton'
+import { getCommonTableProps } from '../utils/tableStyles';
 
 interface DirectoryData {
   watcherPath: string;
@@ -513,12 +514,6 @@ const handleExportData = () => {
       />
     </Box>
     ),
-    muiTablePaperProps: {
-      sx: {
-        borderRadius: '.5rem',
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
     initialState: {
       pagination: { pageIndex: 0, pageSize: 25 },
       columnVisibility: {
@@ -534,44 +529,7 @@ const handleExportData = () => {
       ],
 
     },
-    muiTableBodyRowProps: () => ({
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        '&:hover': {
-          backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-        },
-      },
-    }),
-    muiTableBodyCellProps: () => ({
-      sx: {
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        borderBottom: `1px solid ${darkMode ? '#404040' : '#e0e0e0'}`,
-      },
-    }),
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        fontWeight: 'bold',
-      },
-    },
-    muiTopToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiBottomToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiTableContainerProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
+    ...getCommonTableProps(darkMode),
   });
 
   // Initialize modal table instance
@@ -658,50 +616,7 @@ const handleExportData = () => {
       />
       </Box>
     ),
-    muiTablePaperProps: {
-      sx: {
-        borderRadius: '.5rem',
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
-    muiTableBodyRowProps: () => ({
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        '&:hover': {
-          backgroundColor: darkMode ? DARK_PRIMARY_HOVER : '#f5f5f5',
-        },
-      },
-    }),
-    muiTableBodyCellProps: () => ({
-      sx: {
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        borderBottom: `1px solid ${darkMode ? '#404040' : '#e0e0e0'}`,
-      },
-    }),
-    muiTableHeadCellProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-        fontWeight: 'bold',
-      },
-    },
-    muiTopToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiBottomToolbarProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-        color: darkMode ? DARK_TEXT_SELECTED : '#000000',
-      },
-    },
-    muiTableContainerProps: {
-      sx: {
-        backgroundColor: darkMode ? DARK_PRIMARY : '#ffffff',
-      },
-    },
+    ...getCommonTableProps(darkMode),
   });
 
   return (
