@@ -9,24 +9,31 @@ const Layout = () => {
     >
       <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
         <div className="flex-[3] h-full bg-app rounded-lg shadow p-6 overflow-none">
-
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-lg font-medium text-gray-500">Coming Soon</span>
+          </div>
         </div>
         <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
-
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-lg font-medium text-gray-500">Coming Soon</span>
+          </div>
         </div>
       </div>
       <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
         <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
-
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-lg font-medium text-gray-500">Coming Soon</span>
+          </div>
         </div>
         <div className="flex-1 h-full bg-app rounded-lg shadow p-6 overflow-none">
- 
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-lg font-medium text-gray-500">Coming Soon</span>
+          </div>
         </div>
       </div>
     </div>
   );
 };
-
 
 const Dashboard: React.FC = () => {
   return (

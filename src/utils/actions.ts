@@ -2,6 +2,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import GppBadIcon from '@mui/icons-material/GppBad';
 import LaunchIcon from '@mui/icons-material/Launch';
+import AddBoxIcon from '@mui/icons-material/AddBox';
 import Policy from '@mui/icons-material/Policy';
 import { dirname } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -27,6 +28,14 @@ export const filePathActions: ActionItem[] = [
     onClick: async (value) => {
       await invoke('show_properties', { filePath: value });
     },
+  },
+  {
+    icon: AddBoxIcon,
+    onClick: async (value) => {
+      const dirPath = await dirname(String(value));
+      await invoke('add_directory', { directory: dirPath });
+    },
+    message: 'Now Monitoring!'
   }
 ];
 

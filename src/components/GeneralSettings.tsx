@@ -8,6 +8,8 @@ import {
 import { CustomCheckbox } from './CustomCheckbox';
 import { DARK_TEXT_SELECTED } from '../utils/constants';
 import { useSettings } from '../contexts/SettingsContext';
+import { invoke } from '@tauri-apps/api/tauri';
+import { appDir, } from '@tauri-apps/api/path';
 
 const GeneralSettings: React.FC = () => {
   const {
@@ -20,6 +22,15 @@ const GeneralSettings: React.FC = () => {
     setRegistryCurrentSession,
     setRegistryPastSessions
   } = useSettings();
+
+  const handleOpenLogsLocation = async () => {
+    try {
+      const appDataDir = await appDir();
+      await invoke('open_file_explorer', { path: appDataDir });
+    } catch (error) {
+      console.error('Failed to open logs location:', error);
+    }
+  };
 
   return (
     <div className="bg-app rounded-lg shadow p-6">
@@ -107,6 +118,14 @@ const GeneralSettings: React.FC = () => {
             </div>
           </div>
           <h4 className="text-md font-semibold mt-6 mb-4">Other Settings</h4>
+          <div className="flex gap-2">
+            <button
+              onClick={handleOpenLogsLocation}
+              className="rounded-md bg-secondary color-outline px-3 py-2 text-sm font-semibold app-green shadow-sm app-button"
+            >
+              Open Logs Location
+            </button>
+          </div>
         </div>
       </div>
     </div>

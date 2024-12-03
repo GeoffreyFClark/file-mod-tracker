@@ -240,9 +240,11 @@ impl FileMonitor {
                                         &io_message_from,
                                     );
                     
-                                    println!("File event detected: {}", event_str_from);
-                                    if let Err(e) = app_handle_clone.emit_all("file-change-event", event_str_from.clone()) {
-                                        println!("Failed to emit event: {}", e);
+                                    if let Some(event_str_from) = event_str_from {
+                                        println!("File event detected: {}", event_str_from);
+                                        if let Err(e) = app_handle_clone.emit_all("file-change-event", event_str_from.clone()) {
+                                            println!("Failed to emit event: {}", e);
+                                        }
                                     }
                     
                                     let event_str_to = format_event_from_metadata_with_watcher(
@@ -253,9 +255,11 @@ impl FileMonitor {
                                         &io_message_to,
                                     );
                     
-                                    println!("File event detected: {}", event_str_to);
-                                    if let Err(e) = app_handle_clone.emit_all("file-change-event", event_str_to.clone()) {
-                                        println!("Failed to emit event: {}", e);
+                                    if let Some(event_str_to) = event_str_to {
+                                        println!("File event detected: {}", event_str_to);
+                                        if let Err(e) = app_handle_clone.emit_all("file-change-event", event_str_to.clone()) {
+                                            println!("Failed to emit event: {}", e);
+                                        }
                                     }
                                 } else {
                                     continue;
@@ -297,20 +301,20 @@ impl FileMonitor {
                     // Retrieve metadata
                     match get_file_metadata(&path_str) {
                         Ok(metadata) => {
-                            let event_str = format_event_from_metadata_with_watcher(
+                            if let Some(event_str) = format_event_from_metadata_with_watcher(
                                 event_kind_str,
                                 &path_str,
                                 &metadata,
                                 watcher_dir,
                                 &io_message,
-                            );
-
-                            println!("File event detected: {}", event_str);
-                            if let Err(e) = app_handle_clone.emit_all(
-                                "file-change-event",
-                                event_str.clone(),
                             ) {
-                                println!("Failed to emit event: {}", e);
+                                println!("File event detected: {}", event_str);
+                                if let Err(e) = app_handle_clone.emit_all(
+                                    "file-change-event",
+                                    event_str.clone(),
+                                ) {
+                                    println!("Failed to emit event: {}", e);
+                                }
                             }
                         }
                         Err(e) => {
@@ -534,7 +538,18 @@ fn format_event_from_metadata_with_watcher(
     metadata: &BTreeMap<String, String>,
     watcher_dir: &str,
     io_message: &IOMessage,
-) -> String {
+) -> Option<String> {  // Changed return type to Option<String>
+    // Get process name early to check if we should skip this event
+    let process_name = match get_process_name_and_path(io_message) {
+        Ok((name, _)) => name,
+        Err(_) => "Unknown".to_string(),
+    };
+
+    // Skip event if process is SearchProtocolHost
+    if process_name == "SearchProtocolHost.exe" {
+        return None;
+    }
+
     let timestamp = if event_type == "Moved To" || event_type == "Renamed To" {
         let mut datetime: DateTime<Utc> = io_message.time.into();
         datetime += chrono::Duration::milliseconds(1);
@@ -564,17 +579,14 @@ fn format_event_from_metadata_with_watcher(
         entropy: io_message.entropy,
         extension: wchar_array_to_string(&io_message.extension),
         gid: io_message.gid.to_string(),
-        process_name: match get_process_name_and_path(io_message) {
-            Ok((name, _)) => name,
-            Err(_) => "Unknown".to_string(),
-        },
+        process_name,
         process_path: match get_process_name_and_path(io_message) {
             Ok((_, path)) => path,
             Err(_) => "".to_string(),
         },
     };
 
-    serde_json::to_string(&file_event).unwrap_or_else(|_| "{}".to_string())
+    Some(serde_json::to_string(&file_event).unwrap_or_else(|_| "{}".to_string()))
 }
 
 
