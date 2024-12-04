@@ -47,7 +47,7 @@ const keysColumns: MRT_ColumnDef<RegistryTableDataRow>[] = [
   {
     accessorKey: 'Key',
     header: 'Registry Key',
-    size: 400,
+    maxSize: 10,
     minSize: 40,
     Cell: ({ cell }) => <CustomCell value={cell.getValue<string>()} actions={registryActions} />,
   },
@@ -78,8 +78,16 @@ const changesColumns: MRT_ColumnDef<RegistryChangeEntry & { Key: string }>[] = [
   {
     accessorKey: 'Key',
     header: 'Registry Key',
-    Cell: ({ cell }) => <CustomCell value={cell.getValue<string>()} actions={registryActions} />,
-    size: 300,    
+    Cell: ({ cell }) => (
+      <div style={{ 
+        maxWidth: '300px',
+        wordWrap: 'break-word',
+        whiteSpace: 'normal'
+      }}>
+        <CustomCell value={cell.getValue<string>()} actions={registryActions} />
+      </div>
+    ),
+    size: 300,
   },
   {
     accessorKey: 'Type',
