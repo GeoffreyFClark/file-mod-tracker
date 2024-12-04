@@ -12,10 +12,12 @@ use serde::{Deserialize, Serialize};
 use wchar::wchar_t;
 use windows::Win32::Foundation::{CloseHandle, GetLastError};
 use windows::Win32::Storage::FileSystem::FILE_ID_INFO;
-use windows::Win32::System::ProcessStatus::K32GetProcessImageFileNameA;
+// use windows::Win32::System::ProcessStatus::K32GetProcessImageFileNameA;
+use windows::Win32::System::Threading::{QueryFullProcessImageNameA, PROCESS_NAME_FORMAT};
+use windows::core::PSTR;
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
 
-/// See [`IOMessage`] struct. Used with [`IrpSetInfo`](crate::driver_comm::IrpMajorOp::IrpSetInfo)
+/// See [IOMessage] struct. Used with [IrpSetInfo](crate::driver_comm::IrpMajorOp::IrpSetInfo)
 #[derive(FromPrimitive)]
 #[repr(C)]
 pub enum FileChangeInfo {
@@ -23,15 +25,19 @@ pub enum FileChangeInfo {
     FileOpenDirectory,
     FileChangeWrite,
     FileChangeNewFile,
-    FileChangeRenameFile,
+    FileChangeRename,
+    FileChangeRenameTo,
+    FileChangeRenameFrom,
     FileChangeExtensionChanged,
     FileChangeDeleteFile,
-    /// Temp file: created and deleted on close
     FileChangeDeleteNewFile,
     FileChangeOverwriteFile,
+    FileChangeMove,
+    FileChangeMoveTo,
+    FileChangeMoveFrom
 }
 
-/// See [`IOMessage`] struct.
+/// See [IOMessage] struct.
 #[derive(FromPrimitive)]
 #[repr(C)]
 pub enum FileLocationInfo {
@@ -42,22 +48,22 @@ pub enum FileLocationInfo {
 }
 
 /// Low-level C-like object to communicate with the minifilter.
-/// The minifilter yields `ReplyIrp` objects (retrieved by [`get_irp`](crate::driver_comm::Driver::get_irp) to
+/// The minifilter yields ReplyIrp objects (retrieved by [get_irp](crate::driver_comm::Driver::get_irp) to
 /// manage the fixed size of the *data buffer.
-/// In other words, a `ReplyIrp` is a collection of [`CDriverMsg`] with a capped size.
+/// In other words, a ReplyIrp is a collection of [CDriverMsg] with a capped size.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct ReplyIrp {
     /// The size od the collection.
     pub data_size: c_ulonglong,
-    /// The C pointer to the buffer containing the [`CDriverMsg`] events.
+    /// The C pointer to the buffer containing the [CDriverMsg] events.
     pub data: *const CDriverMsg,
     /// The number of different operations in this collection.
     pub num_ops: u64,
 }
 
 impl ReplyIrp {
-    /// Iterate through `self.data` and returns the collection of [`CDriverMsg`]
+    /// Iterate through self.data and returns the collection of [CDriverMsg]
     #[inline]
     fn unpack_drivermsg(&self) -> Vec<&CDriverMsg> {
         let mut res = vec![];
@@ -77,7 +83,7 @@ impl ReplyIrp {
 }
 
 /// This class is the straight Rust translation of the Win32 API
-/// [`UNICODE_STRING`](https://docs.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_unicode_string),
+/// [UNICODE_STRING](https://docs.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_unicode_string),
 /// returned by the driver.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -92,19 +98,47 @@ impl UnicodeString {
         unsafe {
             // Ensure the buffer is not null
             if self.buffer.is_null() {
+                // if debug_print {
+                //     println!("Debug: Buffer is null");
+                // }
                 return String::new();
             }
 
             let length = (self.length / 2) as usize; // Convert length from bytes to wchar_t units
+            // if debug_print {
+            //     println!("Debug: Buffer length in WCHARs: {}", length);
+                
+            //     let buffer_slice = std::slice::from_raw_parts(self.buffer, length);
+                
+            //     println!("Debug: Complete buffer contents:");
+            //     for (i, &c) in buffer_slice.iter().enumerate() {
+            //         print!("{:04X} ", c);
+            //         if (i + 1) % 8 == 0 {  // Line break every 8 characters for readability
+            //             println!();
+            //         }
+            //         if c == b'|' as wchar_t {
+            //             println!("\nFound pipe character at position {}", i);
+            //         }
+            //     }
+            //     println!();  // End the hex dump
+    
+            //     // Also print as UTF-16 string
+            //     // println!("Debug: Buffer as string: {}", String::from_utf16_lossy(buffer_slice));
+            // }
+
             let buffer_slice = std::slice::from_raw_parts(self.buffer, length);
-
-            // Find the first null terminator
             let first_zero_index = buffer_slice.iter().position(|&c| c == 0).unwrap_or(length);
+            
+            // if debug_print {
+            //     println!("Debug: First zero index: {}", first_zero_index);
+            // }
 
-            // Convert to Rust String
             let mut path_str = String::from_utf16_lossy(&buffer_slice[..first_zero_index]);
+            
+            // if debug_print {
+            //     println!("Debug: Converted path string: {}", path_str);
+            // }
 
-            // Handle extension
             let extension_str = String::from_utf16_lossy(
                 &extension
                     .iter()
@@ -118,6 +152,9 @@ impl UnicodeString {
                 path_str.push_str(&extension_str);
             }
 
+            // if debug_print {
+            //     println!("Debug: Final path string: {}", path_str);
+            // }
             path_str
         }
     }
@@ -150,11 +187,11 @@ impl fmt::Display for UnicodeString {
 pub struct IOMessage {
     /// The file extension
     pub extension: [wchar_t; 24],
-    /// Hard Disk Volume Serial Number where the file is saved (from [`FILE_ID_INFO`])
+    /// Hard Disk Volume Serial Number where the file is saved (from [FILE_ID_INFO])
     pub file_id_vsn: c_ulonglong,
-    /// File ID on the disk ([`FILE_ID_INFO`])
+    /// File ID on the disk ([FILE_ID_INFO])
     pub file_id_id: [u8; 16],
-    /// Number of bytes transferred (`IO_STATUS_BLOCK.Information`)
+    /// Number of bytes transferred (IO_STATUS_BLOCK.Information)
     pub mem_sized_used: c_ulonglong,
     /// (Optional) File Entropy calculated by the driver
     pub entropy: f64,
@@ -191,7 +228,7 @@ pub struct IOMessage {
     pub filepathstr: String,
     /// Group Identifier (maintained by the minifilter) of the operation
     pub gid: c_ulonglong,
-    /// see class [`RuntimeFeatures`]
+    /// see class [RuntimeFeatures]
     pub runtime_features: RuntimeFeatures,
     /// Size of the file. Can be equal to -1 if the file path is not found.
     pub file_size: i64,
@@ -200,10 +237,21 @@ pub struct IOMessage {
 }
 
 impl IOMessage {
-    /// Make a new [`IOMessage`] from a received [`CDriverMsg`]
+    /// Make a new [IOMessage] from a received [CDriverMsg]
     #[inline]
     #[must_use]
     pub fn from(c_drivermsg: &CDriverMsg) -> Self {
+        let file_size = if c_drivermsg.file_change == 4 { 
+            c_drivermsg.mem_sized_used as i64
+        } else {
+            match PathBuf::from(
+                &c_drivermsg.filepath.to_string_ext(c_drivermsg.extension)
+            ).metadata() {
+                Ok(f) => f.len() as i64,
+                Err(_e) => -1,
+            }
+        };
+    
         Self {
             extension: c_drivermsg.extension,
             file_id_vsn: c_drivermsg.file_id.VolumeSerialNumber,
@@ -218,14 +266,7 @@ impl IOMessage {
             filepathstr: c_drivermsg.filepath.to_string_ext(c_drivermsg.extension),
             gid: c_drivermsg.gid,
             runtime_features: RuntimeFeatures::new(),
-            file_size: match PathBuf::from(
-                &c_drivermsg.filepath.to_string_ext(c_drivermsg.extension),
-            )
-            .metadata()
-            {
-                Ok(f) => f.len() as i64,
-                Err(_e) => -1,
-            },
+            file_size,
             time: SystemTime::now(),
         }
     }
@@ -242,22 +283,29 @@ impl IOMessage {
                 if !(handle.is_invalid() || handle.0 == 0) {
                     let mut buffer: Vec<u8> = Vec::new();
                     buffer.resize(1024, 0);
-                    let res = K32GetProcessImageFileNameA(handle, buffer.as_mut_slice());
-
+                    let mut size = 1024u32;
+                    let res = QueryFullProcessImageNameA(
+                        handle,
+                        PROCESS_NAME_FORMAT(0),
+                        PSTR(buffer.as_mut_ptr()),
+                        &mut size
+                    );
+    
                     CloseHandle(handle);
-                    if res == 0 {
-                        let _errorcode = GetLastError().0;
-                    } else {
-                        let pathbuf = PathBuf::from(
-                            String::from_utf8_unchecked(buffer).trim_matches(char::from(0)),
+                    if res.as_bool() {
+                        // Truncate buffer to actual size before conversion
+                        buffer.truncate(size as usize);
+                        let full_path = PathBuf::from(
+                            String::from_utf8_unchecked(buffer)
+                                .trim_matches(char::from(0))
+                                .to_string()
                         );
+                        
                         self.runtime_features.exe_still_exists = true;
-                        self.runtime_features.exepath = pathbuf.file_name().map_or_else(
-                            || PathBuf::from(r"DEFAULT"),
-                            |filename| PathBuf::from(filename.to_string_lossy().to_string()),
-                        );
+                        self.runtime_features.exepath = full_path;
+                    } else {
+                        let _errorcode = GetLastError().0;
                     }
-                    // dbg!(is_closed_handle);
                 }
             }
         }
@@ -295,7 +343,7 @@ pub struct RuntimeFeatures {
 }
 
 impl RuntimeFeatures {
-    /// Make a new [`RuntimeFeatures`]
+    /// Make a new [RuntimeFeatures]
     #[inline]
     #[must_use]
     pub fn new() -> Self {
@@ -313,11 +361,11 @@ impl Default for RuntimeFeatures {
     }
 }
 
-/// The C object returned by the minifilter, available through [`ReplyIrp`].
+/// The C object returned by the minifilter, available through [ReplyIrp].
 /// It is low level and use C pointers logic which is not always compatible with RUST (in particular
-/// the lifetime of `*next`). That's why we convert it asap to a plain Rust [`IOMessage`] object.
+/// the lifetime of *next). That's why we convert it asap to a plain Rust [IOMessage] object.
 ///
-/// `next` is null `(0x0)` when there is no [`IOMessage`] remaining.
+/// next is null (0x0) when there is no [IOMessage] remaining.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct CDriverMsg {
@@ -332,12 +380,12 @@ pub struct CDriverMsg {
     pub file_location_info: c_uchar,
     pub filepath: UnicodeString,
     pub gid: c_ulonglong,
-    /// null (0x0) when there is no [`IOMessage`] remaining
+    /// null (0x0) when there is no [IOMessage] remaining
     pub next: *const CDriverMsg,
 }
 
-/// To iterate easily over a collection of [`IOMessage`] received from the minifilter, before they are
-/// converted to [`IOMessage`].
+/// To iterate easily over a collection of [IOMessage] received from the minifilter, before they are
+/// converted to [IOMessage].
 #[repr(C)]
 pub struct CDriverMsgs<'a> {
     drivermsgs: Vec<&'a CDriverMsg>,
@@ -345,7 +393,7 @@ pub struct CDriverMsgs<'a> {
 }
 
 impl CDriverMsgs<'_> {
-    /// Make a new [`CDriverMsgs`] from a received [`ReplyIrp`]
+    /// Make a new [CDriverMsgs] from a received [ReplyIrp]
     #[inline]
     #[must_use]
     pub fn new(irp: &ReplyIrp) -> CDriverMsgs {

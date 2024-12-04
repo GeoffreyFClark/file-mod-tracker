@@ -157,6 +157,7 @@ impl Driver {
             )
             .expect("Cannot get driver message from driver");
         }
+        // println!("Received {} bytes from driver", tmp);
 
         if tmp != 0 {
             let reply_irp: ReplyIrp;
