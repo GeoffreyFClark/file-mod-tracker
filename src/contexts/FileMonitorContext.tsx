@@ -2,6 +2,12 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState,
 import useFileMonitor from '../hooks/useFileMonitor';
 import { WatcherTableDataRow } from '../utils/types';
 
+declare global {
+  interface Window {
+    __refreshDirectories: () => Promise<void>;
+  }
+}
+
 interface Directory {
   path: string;
   isEnabled: boolean;
@@ -54,6 +60,8 @@ export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = Reac
       console.error('Error fetching directories:', error);
     }
   }, [fileMonitor]);
+
+  (window as any).__refreshDirectories = refreshDirectories;
 
   const addDirectoryByPath = useCallback(async (directory: string) => {
     try {
