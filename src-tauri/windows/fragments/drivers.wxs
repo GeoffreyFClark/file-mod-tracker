@@ -7,62 +7,48 @@
            <Directory Id="DriverFilesDir" Name="Drivers">
                <!-- Each Component block is a copy instruction to put the file in the installer -->
                <Component Id="InstallPart1" Guid="*" Win64="yes">
-                   <File Id="installpart1.cmd" 
-                         Source="../../drivers/installpart1.cmd" 
+                   <File Id="installpart1.cmd"
+                         Source="../../drivers/installpart1.cmd"
                          KeyPath="yes" />
                </Component>
                <Component Id="InstallPart2" Guid="*" Win64="yes">
-                   <File Id="installpart2.cmd" 
-                         Source="../../drivers/installpart2.cmd" 
+                   <File Id="installpart2.cmd"
+                         Source="../../drivers/installpart2.cmd"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverInf" Guid="*" Win64="yes">
-                   <File Id="snFilter.inf" 
-                         Source="../../drivers/snFilter.inf" 
+                   <File Id="snFilter.inf"
+                         Source="../../drivers/snFilter.inf"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverCert" Guid="*" Win64="yes">
-                   <File Id="snFilter.cer" 
-                         Source="../../drivers/snFilter.cer" 
+                   <File Id="snFilter.cer"
+                         Source="../../drivers/snFilter.cer"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverSys" Guid="*" Win64="yes">
-                   <File Id="snFilter.sys" 
-                         Source="../../drivers/snFilter.sys" 
+                   <File Id="snFilter.sys"
+                         Source="../../drivers/snFilter.sys"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverCat" Guid="*" Win64="yes">
-                   <File Id="snFilter.cat" 
-                         Source="../../drivers/snFilter.cat" 
+                   <File Id="snFilter.cat"
+                         Source="../../drivers/snFilter.cat"
                          KeyPath="yes" />
                </Component>
            </Directory>
        </DirectoryRef>
+   </Fragment>
 
-       <!-- It runs installpart1.cmd after files are copied with full admin rights -->
-       <CustomAction Id="InstallDriver" 
-                    FileKey="installpart1.cmd" 
-                    ExeCommand="" 
-                    Execute="deferred" 
-                    Return="check" 
-                    Impersonate="no" />
-
-       <!-- 1. Copy all files -->
-       <!-- 2. Run installpart1.cmd -->
-       <!-- 3. Prompt for reboot -->
-       <!-- The "NOT Installed" means this only happens on fresh installs, not updates -->
-       <InstallExecuteSequence>
-           <Custom Action="InstallDriver" After="InstallFiles">NOT Installed</Custom>
-           <ScheduleReboot After="InstallDriver" />
-       </InstallExecuteSequence>
-
-       <Feature Id="Complete" Level="1">
+   <Fragment>
+       <!-- ComponentGroup allows Tauri to reference all driver components at once -->
+       <ComponentGroup Id="DriverComponents">
            <ComponentRef Id="InstallPart1"/>
            <ComponentRef Id="InstallPart2"/>
            <ComponentRef Id="DriverInf"/>
            <ComponentRef Id="DriverCert"/>
            <ComponentRef Id="DriverSys"/>
            <ComponentRef Id="DriverCat"/>
-       </Feature>
+       </ComponentGroup>
    </Fragment>
 </Wix>

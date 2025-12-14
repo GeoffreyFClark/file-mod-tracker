@@ -64,8 +64,7 @@
       "windows": {
         "wix": {
           "fragmentPaths": ["./windows/fragments/drivers.wxs"],
-          "componentRefs": ["InstallPart1","InstallPart2", "DriverInf", "DriverCert", "DriverSys", "DriverCat"]
-        
+          "componentGroupRefs": ["DriverComponents"]
         }
       }
     }
