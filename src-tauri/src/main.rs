@@ -146,15 +146,32 @@ async fn get_monitored_registry_keys(
 fn open_registry_editor(path: Option<String>) -> Result<(), String> {
     match path {
         Some(reg_path) => {
-            // First set the LastKey in registry using powershell
-            let set_key_command = format!(
+            // Sanitize registry path to prevent command injection
+            // Only allow alphanumeric, backslash, underscore, hyphen, and colon
+            let sanitized_path = reg_path
+                .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '\\' || *c == '_' || *c == '-' || *c == ':')
+                .collect::<String>();
+
+            // Validate that the path starts with a valid registry root
+            let valid_roots = ["HKEY_CLASSES_ROOT", "HKCR", "HKEY_CURRENT_USER", "HKCU",
+                              "HKEY_LOCAL_MACHINE", "HKLM", "HKEY_USERS", "HKU",
+                              "HKEY_CURRENT_CONFIG", "HKCC"];
+
+            if !valid_roots.iter().any(|root| sanitized_path.starts_with(root)) {
+                return Err("Invalid registry path: must start with a valid registry root".to_string());
+            }
+
+            // Use PowerShell's argument passing instead of string interpolation
+            // This prevents command injection by treating the path as data, not code
+            let ps_script = format!(
                 "Set-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit' -Name 'LastKey' -Value '{}'",
-                reg_path
+                sanitized_path.replace("'", "''")  // Escape single quotes for PowerShell
             );
 
             Command::new("powershell")
                 .creation_flags(CREATE_NO_WINDOW)
-                .args(["-Command", &set_key_command])
+                .args(["-NoProfile", "-Command", &ps_script])
                 .output()
                 .map_err(|e| format!("Failed to set registry key: {}", e))?;
 
