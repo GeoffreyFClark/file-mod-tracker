@@ -18,6 +18,7 @@ use windows::core::PSTR;
 use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_READ};
 
 /// See [IOMessage] struct. Used with [IrpSetInfo](crate::driver_comm::IrpMajorOp::IrpSetInfo)
+#[allow(dead_code)]
 #[derive(FromPrimitive)]
 #[repr(C)]
 pub enum FileChangeInfo {
@@ -38,6 +39,7 @@ pub enum FileChangeInfo {
 }
 
 /// See [IOMessage] struct.
+#[allow(dead_code)]
 #[derive(FromPrimitive)]
 #[repr(C)]
 pub enum FileLocationInfo {
@@ -396,7 +398,7 @@ impl CDriverMsgs<'_> {
     /// Make a new [CDriverMsgs] from a received [ReplyIrp]
     #[inline]
     #[must_use]
-    pub fn new(irp: &ReplyIrp) -> CDriverMsgs {
+    pub fn new(irp: &ReplyIrp) -> CDriverMsgs<'_> {
         CDriverMsgs {
             drivermsgs: irp.unpack_drivermsg(),
             index: 0,

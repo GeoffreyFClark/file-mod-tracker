@@ -25,7 +25,7 @@ dirs = "5.0"
 sysinfo = "0.28.0"
 widestring = "1.0.1"
 serde = { version = "1.0.130", features = ["derive"] }
-num-derive = "0.3"
+num-derive = "0.4"
 num-traits = "0.2.14"
 wchar = "0.11.0"
 scopeguard = "1.1.0"

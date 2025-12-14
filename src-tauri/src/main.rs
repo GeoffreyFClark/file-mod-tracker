@@ -6,6 +6,10 @@ use registry_monitor::RegistryMonitor;
 mod kill_process;
 mod wmi_manager;
 
+// Need to refactor tests module
+// #[cfg(test)]
+// mod tests;
+
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use std::process::Command;
