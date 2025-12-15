@@ -8,32 +8,32 @@
                <!-- Each Component block is a copy instruction to put the file in the installer -->
                <Component Id="InstallPart1" Guid="*" Win64="yes">
                    <File Id="installpart1.cmd"
-                         Source="../../drivers/installpart1.cmd"
+                         Source="drivers/installpart1.cmd"
                          KeyPath="yes" />
                </Component>
                <Component Id="InstallPart2" Guid="*" Win64="yes">
                    <File Id="installpart2.cmd"
-                         Source="../../drivers/installpart2.cmd"
+                         Source="drivers/installpart2.cmd"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverInf" Guid="*" Win64="yes">
                    <File Id="snFilter.inf"
-                         Source="../../drivers/snFilter.inf"
+                         Source="drivers/snFilter.inf"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverCert" Guid="*" Win64="yes">
                    <File Id="snFilter.cer"
-                         Source="../../drivers/snFilter.cer"
+                         Source="drivers/snFilter.cer"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverSys" Guid="*" Win64="yes">
                    <File Id="snFilter.sys"
-                         Source="../../drivers/snFilter.sys"
+                         Source="drivers/snFilter.sys"
                          KeyPath="yes" />
                </Component>
                <Component Id="DriverCat" Guid="*" Win64="yes">
-                   <File Id="snFilter.cat"
-                         Source="../../drivers/snFilter.cat"
+                   <File Id="snfilter.cat"
+                         Source="drivers/snfilter.cat"
                          KeyPath="yes" />
                </Component>
            </Directory>
