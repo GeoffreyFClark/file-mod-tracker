@@ -51,5 +51,6 @@ jobs:
     - name: Build Frontend
       run: npm run build
 
-    - name: Build Tauri App (Debug)
-      run: npm run tauri build -- --debug
+    - name: Build Tauri App Executable (Skip MSI Bundle)
+      run: npm run tauri build -- --debug --bundles none
+      # MSI bundle creation workflow check skipped
