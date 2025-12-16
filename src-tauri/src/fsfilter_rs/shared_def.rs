@@ -100,46 +100,14 @@ impl UnicodeString {
         unsafe {
             // Ensure the buffer is not null
             if self.buffer.is_null() {
-                // if debug_print {
-                //     println!("Debug: Buffer is null");
-                // }
                 return String::new();
             }
 
             let length = (self.length / 2) as usize; // Convert length from bytes to wchar_t units
-            // if debug_print {
-            //     println!("Debug: Buffer length in WCHARs: {}", length);
-                
-            //     let buffer_slice = std::slice::from_raw_parts(self.buffer, length);
-                
-            //     println!("Debug: Complete buffer contents:");
-            //     for (i, &c) in buffer_slice.iter().enumerate() {
-            //         print!("{:04X} ", c);
-            //         if (i + 1) % 8 == 0 {  // Line break every 8 characters for readability
-            //             println!();
-            //         }
-            //         if c == b'|' as wchar_t {
-            //             println!("\nFound pipe character at position {}", i);
-            //         }
-            //     }
-            //     println!();  // End the hex dump
-    
-            //     // Also print as UTF-16 string
-            //     // println!("Debug: Buffer as string: {}", String::from_utf16_lossy(buffer_slice));
-            // }
-
             let buffer_slice = std::slice::from_raw_parts(self.buffer, length);
             let first_zero_index = buffer_slice.iter().position(|&c| c == 0).unwrap_or(length);
-            
-            // if debug_print {
-            //     println!("Debug: First zero index: {}", first_zero_index);
-            // }
 
             let mut path_str = String::from_utf16_lossy(&buffer_slice[..first_zero_index]);
-            
-            // if debug_print {
-            //     println!("Debug: Converted path string: {}", path_str);
-            // }
 
             let extension_str = String::from_utf16_lossy(
                 &extension
@@ -154,9 +122,6 @@ impl UnicodeString {
                 path_str.push_str(&extension_str);
             }
 
-            // if debug_print {
-            //     println!("Debug: Final path string: {}", path_str);
-            // }
             path_str
         }
     }

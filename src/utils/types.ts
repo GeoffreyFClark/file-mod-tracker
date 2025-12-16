@@ -130,16 +130,6 @@ export interface Data {
 }
 
 
-export interface DataRow {
-  cells: DataCell[];
-}
-
-export interface Data {
-  headings: { data: string }[];
-  data: DataRow[];
-}
-
-
 export interface RawDataEntry {
   Path: string;
   PID: string | number;
