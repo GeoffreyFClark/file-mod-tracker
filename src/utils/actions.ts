@@ -82,11 +82,25 @@ export const processActions: ActionItem[] = [
         }
       },
     {
-        icon: GppBadIcon, 
+        icon: GppBadIcon,
         onClick: async (value: string | ProcessInfo) => {
             if (typeof value === 'object' && 'pid' in value) {
-              const response = await invoke<KillProcessResponse>('kill_process', { 
-                processInfo: value 
+              // Show confirmation dialog before killing process
+              const processName = value.name || 'Unknown';
+              const pid = value.pid;
+              const confirmed = window.confirm(
+                `Are you sure you want to terminate this process?\n\n` +
+                `Process: ${processName}\n` +
+                `PID: ${pid}\n\n` +
+                `This action cannot be undone and may cause data loss.`
+              );
+
+              if (!confirmed) {
+                return 'Process termination cancelled';
+              }
+
+              const response = await invoke<KillProcessResponse>('kill_process', {
+                processInfo: value
               });
               return response.message;
             }
