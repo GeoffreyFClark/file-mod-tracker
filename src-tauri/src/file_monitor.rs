@@ -26,6 +26,13 @@ use wmi_manager::initialize_wmi;
 use crate::fsfilter_rs::driver_comm;
 use crate::fsfilter_rs::shared_def::{CDriverMsgs, IOMessage};
 
+// Process exclusion list, add processes to ignore during monitoring
+const EXCLUDED_PROCESSES: &[&str] = &[
+    "SearchProtocolHost.exe",
+    "SearchIndexer.exe",
+    "SearchFilterHost.exe",
+];
+
 #[derive(Serialize)]
 struct FileEventMetadata {
     size: String,
@@ -545,8 +552,8 @@ fn format_event_from_metadata_with_watcher(
         Err(_) => "Unknown".to_string(),
     };
 
-    // Skip event if process is SearchProtocolHost
-    if process_name == "SearchProtocolHost.exe" {
+    // Skip events from excluded processes
+    if EXCLUDED_PROCESSES.contains(&process_name.as_str()) {
         return None;
     }
 
