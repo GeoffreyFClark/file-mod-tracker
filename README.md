@@ -4,10 +4,6 @@
 
 A comprehensive file integrity monitoring solution combining kernel-level instrumentation with an intuitive desktop interface. The application leverages a Windows minifilter driver ([fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs)) to intercept file system operations at the kernel level, while the Rust backend processes events, applies intelligent filtering, and manages monitoring policies. This architecture enables zero-overhead detection of malicious file modifications, ransomware activity, and unauthorized access patterns across the system.
 
-![File Monitoring Logs - All Events](screenshots/all_events_view.png)
-![Add/Toggle Directories](screenshots/add_toggle_directories.png)
-![Settings](screenshots/settings.png)
-
 **Architecture:**
 - **Kernel Driver (snFilter.sys)**: Windows minifilter that hooks into the file system to capture I/O operations
 - **Rust Backend**: Communicates with the driver via Windows Filter Manager API, processes events, applies configurable filtering rules, manages persistent settings
@@ -21,6 +17,9 @@ A comprehensive file integrity monitoring solution combining kernel-level instru
 5. Click "Yes" when prompted to restart machine
 6. Run the GatorSec.exe file via the shortcut created on your desktop 
 
+![File Monitoring Logs - All Events](screenshots/all_events_view.png)
+![Add/Toggle Directories](screenshots/add_toggle_directories.png)
+![Settings](screenshots/settings.png)
 
 ## User Guide
 
@@ -148,13 +147,11 @@ src-tauri\target\release\GatorSec.exe
 ```
 
 ### Development Mode
-
-For development without driver functionality:
 ```bash
 npm run tauri dev
 ```
 
-**Note:** Development mode will launch the app, but file monitoring will not work until the driver is installed using the steps above. Once the driver is installed, it persists across reboots and `npm run tauri dev` will work fully.
+**Note:** Development mode will launch the app, but file monitoring will not work until the driver is installed using the steps above. Once the driver is installed, it can be loaded with `fltmc load snFilter`.
 
 ### Architecture Notes
 
