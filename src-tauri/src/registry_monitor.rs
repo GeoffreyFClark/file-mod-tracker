@@ -238,9 +238,10 @@ fn monitor_registry_key(
     app_handle: tauri::AppHandle,
     global_running: Arc<AtomicBool>,
 ) -> Result<(), String> {
-    // println!("Starting monitoring thread for registry key '{}'", key_name);
+    println!("[RegistryMonitor] Starting monitoring thread for registry key '{}'", key_name);
 
     let mut values_cache: HashMap<String, (Vec<u8>, String)> = HashMap::new();
+    let mut subkeys_cache: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     // Initial population of values cache
     for value_result in h_key.enum_values() {
@@ -250,7 +251,15 @@ fn monitor_registry_key(
         }
     }
 
-    // println!("Initial cache populated for key '{}' with {} values", key_name, values_cache.len());
+    // Initial population of subkeys cache
+    for subkey_result in h_key.enum_keys() {
+        if let Ok(subkey_name) = subkey_result {
+            subkeys_cache.insert(subkey_name);
+        }
+    }
+
+    println!("[RegistryMonitor] Initial cache populated for key '{}' with {} values and {} subkeys",
+             key_name, values_cache.len(), subkeys_cache.len());
 
     while key_running.load(Ordering::SeqCst) && global_running.load(Ordering::SeqCst) {
         unsafe {
@@ -296,8 +305,9 @@ fn monitor_registry_key(
                         name, key_name, old_data, new_data
                     );
                     println!("{}", event_str);
-                    if let Err(e) = app_handle.emit_all("registry-change-event", event_str) {
-                        error!("Failed to emit registry event: {}", e);
+                    match app_handle.emit_all("registry-change-event", event_str.clone()) {
+                        Ok(_) => println!("[RegistryMonitor] Successfully emitted UPDATED event for key '{}'", key_name),
+                        Err(e) => error!("[RegistryMonitor] Failed to emit registry UPDATED event: {}", e),
                     }
                 }
                 None => {
@@ -306,8 +316,9 @@ fn monitor_registry_key(
                         name, key_name, new_data
                     );
                     println!("{}", event_str);
-                    if let Err(e) = app_handle.emit_all("registry-change-event", event_str) {
-                        error!("Failed to emit registry event: {}", e);
+                    match app_handle.emit_all("registry-change-event", event_str.clone()) {
+                        Ok(_) => println!("[RegistryMonitor] Successfully emitted ADDED event for key '{}'", key_name),
+                        Err(e) => error!("[RegistryMonitor] Failed to emit registry ADDED event: {}", e),
                     }
                 }
                 _ => {}
@@ -322,11 +333,54 @@ fn monitor_registry_key(
                     name, key_name, old_data
                 );
                 println!("{}", event_str);
-                if let Err(e) = app_handle.emit_all("registry-change-event", event_str) {
-                    error!("Failed to emit registry event: {}", e);
+                match app_handle.emit_all("registry-change-event", event_str.clone()) {
+                    Ok(_) => println!("[RegistryMonitor] Successfully emitted REMOVED event for key '{}'", key_name),
+                    Err(e) => error!("[RegistryMonitor] Failed to emit registry REMOVED event: {}", e),
                 }
                 values_cache.remove(&name);
             }
+        }
+
+        // Monitor subkey changes
+        let current_subkeys: std::collections::HashSet<String> = h_key
+            .enum_keys()
+            .filter_map(|k| k.ok())
+            .collect();
+
+        // Detect new subkeys
+        for subkey_name in &current_subkeys {
+            if !subkeys_cache.contains(subkey_name) {
+                let event_str = format!(
+                    "SUBKEY_ADDED: Subkey '{}' was created in registry key '{}'",
+                    subkey_name, key_name
+                );
+                println!("{}", event_str);
+                match app_handle.emit_all("registry-change-event", event_str.clone()) {
+                    Ok(_) => println!("[RegistryMonitor] Successfully emitted SUBKEY_ADDED event for key '{}'", key_name),
+                    Err(e) => error!("[RegistryMonitor] Failed to emit registry SUBKEY_ADDED event: {}", e),
+                }
+                subkeys_cache.insert(subkey_name.clone());
+            }
+        }
+
+        // Detect removed subkeys
+        let removed_subkeys: Vec<String> = subkeys_cache
+            .iter()
+            .filter(|name| !current_subkeys.contains(*name))
+            .cloned()
+            .collect();
+
+        for subkey_name in removed_subkeys {
+            let event_str = format!(
+                "SUBKEY_REMOVED: Subkey '{}' was deleted from registry key '{}'",
+                subkey_name, key_name
+            );
+            println!("{}", event_str);
+            match app_handle.emit_all("registry-change-event", event_str.clone()) {
+                Ok(_) => println!("[RegistryMonitor] Successfully emitted SUBKEY_REMOVED event for key '{}'", key_name),
+                Err(e) => error!("[RegistryMonitor] Failed to emit registry SUBKEY_REMOVED event: {}", e),
+            }
+            subkeys_cache.remove(&subkey_name);
         }
     }
 

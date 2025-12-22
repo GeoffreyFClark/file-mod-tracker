@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/tauri';
 import { RegistryTableDataRow, RegistryEvent, RegistryMonitorContextType, RegistryCache } from '../utils/types';
 import { registryLogger } from '../utils/Logger';
 
 const REGISTRY_EVENTS_KEY = 'registryEvents';
+const STORED_REGISTRY_KEYS = 'storedRegistryKeys';
 
 const RegistryMonitorContext = createContext<RegistryMonitorContextType | undefined>(undefined);
 
@@ -18,7 +19,7 @@ const useRegistryMonitor = () => {
   const [cache, setCache] = useState<RegistryCache>({});
   const [monitoredKeys, setMonitoredKeys] = useState<string[]>([]);
   const [registryTableData, setRegistryTableData] = useState<RegistryTableDataRow[]>([]);
-  const [unsubscribe, setUnsubscribe] = useState<(() => void) | undefined>();
+  const unsubscribeRef = useRef<UnlistenFn | undefined>();
 
   // Effect to update cache and table data when events change
   useEffect(() => {
@@ -72,7 +73,7 @@ const useRegistryMonitor = () => {
     }
   }, [registryTableData]);
 
-  // Initialize from localStorage
+  // Initialize from localStorage and fetch monitored keys
   useEffect(() => {
     const savedEvents = localStorage.getItem(REGISTRY_EVENTS_KEY);
     if (savedEvents) {
@@ -89,6 +90,51 @@ const useRegistryMonitor = () => {
     invoke<boolean>('is_registry_monitoring')
       .then(status => setIsMonitoring(status))
       .catch(error => console.error('[RegistryMonitor] Error checking monitoring status:', error));
+
+    // Fetch initial list of monitored keys and auto-restore
+    invoke<string[]>('get_monitored_registry_keys')
+      .then(async (keys) => {
+        console.log('[RegistryMonitor] Initial monitored keys from backend:', keys);
+        setMonitoredKeys(keys);
+
+        // Auto-restore previously stored keys that aren't currently monitored
+        const storedKeysJson = localStorage.getItem(STORED_REGISTRY_KEYS);
+        if (storedKeysJson) {
+          try {
+            const storedKeys: string[] = JSON.parse(storedKeysJson);
+            console.log('[RegistryMonitor] Stored registry keys from localStorage:', storedKeys);
+
+            // Find keys that need to be restored (in localStorage but not currently monitored)
+            const keysToRestore = storedKeys.filter(key => !keys.includes(key));
+
+            if (keysToRestore.length > 0) {
+              console.log('[RegistryMonitor] Auto-restoring', keysToRestore.length, 'registry keys:', keysToRestore);
+
+              // Restore each key
+              for (const keyPath of keysToRestore) {
+                try {
+                  await invoke('add_registry_key_to_monitor', { keyPath });
+                  console.log('[RegistryMonitor] Successfully restored key:', keyPath);
+                } catch (error) {
+                  console.error(`[RegistryMonitor] Failed to restore key '${keyPath}':`, error);
+                }
+              }
+
+              // Refresh the monitored keys list after restoration
+              const updatedKeys = await invoke<string[]>('get_monitored_registry_keys');
+              setMonitoredKeys(updatedKeys);
+              console.log('[RegistryMonitor] Updated monitored keys after restoration:', updatedKeys);
+            } else {
+              console.log('[RegistryMonitor] No keys need restoration');
+            }
+          } catch (error) {
+            console.error('[RegistryMonitor] Error parsing stored registry keys:', error);
+          }
+        } else {
+          console.log('[RegistryMonitor] No stored registry keys found in localStorage');
+        }
+      })
+      .catch(error => console.error('[RegistryMonitor] Error fetching monitored keys:', error));
   }, []);
 
   // Set up event listener
@@ -97,10 +143,14 @@ const useRegistryMonitor = () => {
 
     const setupListener = async () => {
       try {
+        console.log('[RegistryMonitor] Setting up event listener for registry-change-event');
         const unsub = await listen('registry-change-event', (event) => {
           if (!isSubscribed) {
+            console.log('[RegistryMonitor] Event received but subscription is closed');
             return;
           }
+
+          console.log('[RegistryMonitor] Registry change event received:', event.payload);
 
           const eventData = event.payload as string;
           const lines = eventData.split('\n');
@@ -115,11 +165,22 @@ const useRegistryMonitor = () => {
             if (line.startsWith('UPDATED:') || line.startsWith('ADDED:') || line.startsWith('REMOVED:')) {
               const [type, content] = line.split(': ');
               registryEvent.type = type.trim();
-              
-              const valueMatch = content.match(/Value '([^']+)' in registry key '([^']+)'/);
+
+              // Updated regex to allow empty value names (changed [^']+ to [^']*)
+              const valueMatch = content.match(/Value '([^']*)' in registry key '([^']+)'/);
               if (valueMatch) {
-                registryEvent.value = valueMatch[1];
+                registryEvent.value = valueMatch[1];  // Can be empty string
                 registryEvent.key = valueMatch[2];
+              }
+            } else if (line.startsWith('SUBKEY_ADDED:') || line.startsWith('SUBKEY_REMOVED:')) {
+              const [type, content] = line.split(': ');
+              registryEvent.type = type.trim();
+
+              // Match subkey events: "Subkey 'name' was created/deleted in registry key 'path'"
+              const subkeyMatch = content.match(/Subkey '([^']+)' (?:was created|was deleted) in registry key '([^']+)'/);
+              if (subkeyMatch) {
+                registryEvent.value = `[Subkey] ${subkeyMatch[1]}`;  // Mark as subkey
+                registryEvent.key = subkeyMatch[2];
               }
             } else if (line.startsWith('Previous Data:')) {
               registryEvent.previousData = line.split(':')[1].trim().replace(/'/g, '');
@@ -130,15 +191,20 @@ const useRegistryMonitor = () => {
 
           // Only add valid events
           if (registryEvent.key && registryEvent.type !== 'UNKNOWN') {
+            console.log('[RegistryMonitor] Adding valid registry event:', registryEvent);
             setEvents(prevEvents => {
               const newEvents = [...prevEvents, registryEvent];
               localStorage.setItem(REGISTRY_EVENTS_KEY, JSON.stringify(newEvents));
               return newEvents;
             });
+          } else {
+            console.warn('[RegistryMonitor] Skipping invalid registry event:', registryEvent);
           }
         });
-        
-        setUnsubscribe(() => unsub);
+
+        // FIX: Store the unsubscribe function directly in the ref
+        unsubscribeRef.current = unsub;
+        console.log('[RegistryMonitor] Event listener setup complete');
       } catch (error) {
         console.error('[RegistryMonitor] Error setting up event listener:', error);
       }
@@ -147,15 +213,11 @@ const useRegistryMonitor = () => {
     setupListener();
 
     return () => {
+      console.log('[RegistryMonitor] Cleaning up event listener');
       isSubscribed = false;
-      if (unsubscribe) {
-        unsubscribe();
-      }
-      // Force final write of any pending registry data
-      if (registryTableData.length > 0) {
-        registryLogger.forceWrite().catch(error => {
-          console.error('[RegistryMonitor] Error writing final log:', error);
-        });
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = undefined;
       }
     };
   }, []);

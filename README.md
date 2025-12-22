@@ -19,6 +19,8 @@ A comprehensive file integrity monitoring solution combining kernel-level instru
 
 ![File Monitoring Logs - All Events](screenshots/all_events_view.png)
 ![Add/Toggle Directories](screenshots/add_toggle_directories.png)
+![Registry Monitoring Logs - Modifications](screenshots/registry_logs.png)
+![Add/Toggle Registries](screenshots/registry_settings.png)
 ![Settings](screenshots/settings.png)
 
 ## User Guide
@@ -57,10 +59,14 @@ Process actions include:
 - **Terminate**: Kill the process (requires confirmation)
 
 ### Registry Monitoring
-Registry changes show:
+The application monitors registry keys for security-relevant changes:
+- **Value Changes**: Detects when registry values are added, modified, or deleted
+- **Subkey Changes**: Detects when new subkeys are created or removed under monitored keys
 - **Key Path**: Full registry path (click to copy or open in Registry Editor)
-- **Operation**: Key created, modified, or deleted
+- **Operation Types**: ADDED, UPDATED, REMOVED, SUBKEY_ADDED, SUBKEY_REMOVED
 - **Timestamp**: When the change occurred
+
+**Note:** Registry monitoring tracks direct value changes and immediate subkeys of monitored keys. It does not recursively monitor all nested subkeys for performance reasons.
 
 ### Session Logs
 File and registry changes are logged to:
