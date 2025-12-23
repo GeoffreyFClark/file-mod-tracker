@@ -22,7 +22,6 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-LicenseFile=..\LICENSE
 OutputDir=..\dist
 OutputBaseFilename=GatorSec_Setup_{#MyAppVersion}
 SetupIconFile=..\src-tauri\icons\icon.ico
@@ -54,8 +53,7 @@ Source: "..\src-tauri\drivers\snFilter.inf"; DestDir: "{app}\drivers"; Flags: ig
 Source: "..\src-tauri\drivers\snFilter.cer"; DestDir: "{app}\drivers"; Flags: ignoreversion
 Source: "..\src-tauri\drivers\snfilter.cat"; DestDir: "{app}\drivers"; Flags: ignoreversion
 
-; Post-install scripts
-Source: "post_install.cmd"; DestDir: "{app}"; Flags: ignoreversion deleteafterinstall
+; Post-install script
 Source: "complete_driver_install.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
