@@ -6,7 +6,6 @@ import { RegistryMonitorProvider, useRegistryMonitorContext } from './contexts/R
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Logs from './pages/Logs';
-import Detections from './pages/Detections';
 import Settings from './pages/Settings';
 import { appWindow } from '@tauri-apps/api/window';
 
@@ -33,9 +32,7 @@ const ContentRenderer: React.FC<{ selectedItem: string }> = React.memo(({ select
   const memoizedContent = useMemo(() => ({
     Home: <Dashboard />,
     Logs: <Logs />,
-    Detections: <Detections />,
     Settings: <Settings />,
-    // Map other components as needed based on your sidebar icons
   }), []);
 
   const content = memoizedContent[selectedItem as keyof typeof memoizedContent] || memoizedContent.Home;

@@ -1,3 +1,21 @@
+//! # Registry Monitor Prototype
+//!
+//! This file contains the original standalone prototype implementation of the registry
+//! monitoring functionality. It was developed as a proof-of-concept before being
+//! integrated into the main application.
+//!
+//! **Note:** This file is kept as a reference implementation and is not actively used
+//! in the application. The production implementation is in `registry_monitor.rs`, which
+//! integrates with the Tauri application and provides additional features like:
+//! - Event emission to the frontend via Tauri's event system
+//! - Dynamic key management (add/remove keys at runtime)
+//! - Thread-safe state management
+//! - Subkey creation/deletion detection
+//!
+//! This prototype demonstrates the core concepts of Windows registry monitoring using
+//! `RegNotifyChangeKeyValue` API and may be useful for understanding the underlying
+//! mechanism or for standalone testing.
+
 use env_logger;
 use log::{error, info};
 use std::collections::HashMap;

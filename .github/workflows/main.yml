@@ -51,6 +51,27 @@ jobs:
     - name: Build Frontend
       run: npm run build
 
-    - name: Build Tauri App Executable (Skip MSI Bundle)
-      run: npm run tauri build -- --debug --bundles none
-      # MSI bundle creation workflow check skipped
+    - name: Build Tauri App (Release)
+      run: npm run tauri build -- --bundles none
+
+    - name: Install Inno Setup
+      run: choco install innosetup -y
+
+    - name: Build Installer
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\gatorsec.iss
+      shell: pwsh
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GatorSec-Installer
+        path: dist/GatorSec_Setup_*.exe
+        if-no-files-found: error
+
+    - name: Upload Portable Executable
+      uses: actions/upload-artifact@v4
+      with:
+        name: GatorSec-Portable
+        path: src-tauri/target/release/GatorSec.exe
+        if-no-files-found: error

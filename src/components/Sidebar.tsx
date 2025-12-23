@@ -2,7 +2,6 @@ import React from 'react';
 import { IoSettingsSharp } from "react-icons/io5";
 import { TbHexagonLetterG } from "react-icons/tb";
 import { MdHome, MdOutlineBackupTable } from "react-icons/md";
-import { RiAlertFill } from "react-icons/ri";
 import { useNavigation } from '../contexts/NavigationContext';
 import Tooltip from '@mui/material/Tooltip';
 
@@ -12,7 +11,6 @@ const Sidebar: React.FC = () => {
   const navigationItems = [
     { id: 'Home', Icon: MdHome, tooltip: 'Home' },
     { id: 'Logs', Icon: MdOutlineBackupTable, tooltip: 'Logs' },
-    { id: 'Detections', Icon: RiAlertFill, tooltip: 'Detections' },
     { id: 'Settings', Icon: IoSettingsSharp, tooltip: 'Settings' }
   ];
 
