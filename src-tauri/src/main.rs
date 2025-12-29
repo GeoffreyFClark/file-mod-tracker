@@ -70,6 +70,17 @@ async fn get_watched_directories(
     state.file_monitor.get_watched_directories()
 }
 
+#[tauri::command]
+async fn reinitialize_file_monitoring(
+    directories: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    // This command re-establishes driver communication after driver reload
+    // It's similar to start_monitoring but explicitly for reconnection
+    log::info!("Reinitializing file monitoring with {} directories", directories.len());
+    state.file_monitor.start_monitoring(directories)
+}
+
 // Registry Monitoring Commands
 
 #[tauri::command]
@@ -336,6 +347,59 @@ async fn kill_process(process_info: kill_process::ProcessInfo) -> Result<kill_pr
     kill_process::handle_kill_process(process_info).await
 }
 
+// Driver Control Commands
+
+#[tauri::command]
+fn is_driver_loaded() -> Result<bool, String> {
+    let output = Command::new("fltmc")
+        .args(["filters"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to run fltmc: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    Ok(stdout.to_lowercase().contains("snfilter"))
+}
+
+#[tauri::command]
+fn load_driver() -> Result<(), String> {
+    let output = Command::new("fltmc")
+        .args(["load", "snFilter"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to run fltmc load: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Check if already loaded (not an error)
+        if stdout.contains("already loaded") || stderr.contains("already loaded") {
+            Ok(())
+        } else {
+            Err(format!("Failed to load driver: {} {}", stdout, stderr))
+        }
+    }
+}
+
+#[tauri::command]
+fn unload_driver() -> Result<(), String> {
+    let output = Command::new("fltmc")
+        .args(["unload", "snFilter"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .map_err(|e| format!("Failed to run fltmc unload: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        Err(format!("Failed to unload driver: {} {}", stdout, stderr))
+    }
+}
+
 fn main() {
     
     // Configure logging system
@@ -357,6 +421,29 @@ fn main() {
     // Initialize and run the Tauri application
     tauri::Builder::default()
         .setup(|app| {
+            // Auto-load the minifilter driver on app start
+            match Command::new("fltmc")
+                .args(["load", "snFilter"])
+                .creation_flags(CREATE_NO_WINDOW)
+                .output()
+            {
+                Ok(output) => {
+                    if output.status.success() {
+                        log::info!("Minifilter driver loaded successfully");
+                    } else {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        if stdout.contains("already loaded") {
+                            log::info!("Minifilter driver already loaded");
+                        } else {
+                            log::warn!("Could not load minifilter driver: {}", stdout);
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("Failed to run fltmc: {}", e);
+                }
+            }
+
             let app_handle = app.handle();
             let monitor = RegistryMonitor::new(app_handle.clone());
 
@@ -381,6 +468,7 @@ fn main() {
             remove_directory,
             add_directory,
             get_watched_directories,
+            reinitialize_file_monitoring,
             kill_process,
             // Registry monitoring commands
             start_registry_monitoring,
@@ -391,7 +479,11 @@ fn main() {
             get_monitored_registry_keys,
             open_registry_editor,
             open_file_explorer,
-            show_properties
+            show_properties,
+            // Driver control commands
+            is_driver_loaded,
+            load_driver,
+            unload_driver
         ])
         .run(tauri::generate_context!())
         .expect("Error while running Tauri application");

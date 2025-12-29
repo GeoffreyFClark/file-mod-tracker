@@ -72,12 +72,19 @@ const useFileMonitor = () => {
     return [];
   }, []);
 
+  const reinitializeMonitoring = useCallback(async (directories: string[]): Promise<void> => {
+    if (fileMonitorRef.current) {
+      await fileMonitorRef.current.reinitializeMonitoring(directories);
+    }
+  }, []);
+
   return {
     tableData,
     addDirectoryByPath,
     removeDirectory,
     startMonitoring,
     getWatchedDirectories,
+    reinitializeMonitoring,
     directories: monitorState.directories,
   };
 };

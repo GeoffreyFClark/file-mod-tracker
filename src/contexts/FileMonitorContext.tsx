@@ -22,6 +22,7 @@ interface FileMonitorContextType {
   directories: Directory[];
   refreshDirectories: () => Promise<void>;
   resetDirectoryStates: () => void;
+  reinitializeMonitoring: () => Promise<void>;
 }
 
 const FileMonitorContext = createContext<FileMonitorContextType | undefined>(undefined);
@@ -101,6 +102,18 @@ export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = Reac
     }
   }, [fileMonitor]);
 
+  const reinitializeMonitoring = useCallback(async () => {
+    try {
+      // Get enabled directories and reinitialize monitoring with them
+      const enabledDirs = directories.filter(d => d.isEnabled).map(d => d.path);
+      console.log('Reinitializing file monitoring with enabled directories:', enabledDirs);
+      await fileMonitor.reinitializeMonitoring(enabledDirs);
+      console.log('File monitoring reinitialized successfully');
+    } catch (error) {
+      console.error('Error reinitializing file monitoring:', error);
+    }
+  }, [fileMonitor, directories]);
+
   useEffect(() => {
     const initializeMonitoring = async () => {
       if (initializationRef.current) return;
@@ -130,13 +143,15 @@ export const FileMonitorProvider: React.FC<{ children: React.ReactNode }> = Reac
     directories,
     refreshDirectories,
     resetDirectoryStates,
+    reinitializeMonitoring,
   }), [
     directories,
     addDirectoryByPath,
     toggleDirectoryState,
     deleteDirectory,
     refreshDirectories,
-    resetDirectoryStates
+    resetDirectoryStates,
+    reinitializeMonitoring
   ]);
 
   return (

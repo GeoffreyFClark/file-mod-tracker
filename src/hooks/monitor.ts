@@ -188,4 +188,16 @@ export class FileMonitor {
             console.log(`Directory not found in monitored list: ${directory}`);
         }
     }
+
+    public async reinitializeMonitoring(directories: string[]): Promise<void> {
+        try {
+            console.log('Reinitializing file monitoring with directories:', directories);
+            await invoke('reinitialize_file_monitoring', { directories });
+            this.isMonitoring = true;
+            console.log('File monitoring reinitialized successfully');
+        } catch (error) {
+            console.error('Error reinitializing file monitoring:', error);
+            throw error;
+        }
+    }
 }

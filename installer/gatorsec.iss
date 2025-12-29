@@ -6,7 +6,7 @@
 ; 4. Sets up post-reboot driver loading
 
 #define MyAppName "GatorSec"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "GatorSec"
 #define MyAppURL "https://github.com/GeoffreyFClark/file-mod-tracker"
 #define MyAppExeName "GatorSec.exe"
@@ -68,8 +68,7 @@ Filename: "bcdedit.exe"; Parameters: "-set TESTSIGNING ON"; Flags: runhidden wai
 ; Install certificate
 Filename: "certutil.exe"; Parameters: "-addstore -enterprise ""Root"" ""{app}\drivers\snFilter.cer"""; Flags: runhidden waituntilterminated; StatusMsg: "Installing driver certificate..."
 
-; Schedule driver installation for after reboot
-Filename: "schtasks.exe"; Parameters: "/create /tn ""GatorSecDriverInstall"" /tr ""\\""{app}\complete_driver_install.cmd\\"""" /sc ONLOGON /RL HIGHEST /RU ""{username}"" /IT /F"; Flags: runhidden waituntilterminated; StatusMsg: "Scheduling driver installation..."
+; Driver installation will be scheduled via [Code] section for proper path escaping
 
 [UninstallRun]
 ; Stop and remove the driver
@@ -87,10 +86,36 @@ begin
   Result := True;
 end;
 
+function GetCurrentUserName(): String;
+var
+  UserName: String;
+begin
+  UserName := GetEnv('USERNAME');
+  if UserName = '' then
+    UserName := 'SYSTEM';
+  Result := UserName;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+  CmdPath: String;
+  TaskParams: String;
 begin
   if CurStep = ssPostInstall then
   begin
+    // Schedule driver installation for after reboot
+    CmdPath := ExpandConstant('{app}\complete_driver_install.cmd');
+    TaskParams := '/create /tn "GatorSecDriverInstall" /tr "\"' + CmdPath + '\"" /sc ONLOGON /RL HIGHEST /RU "' + GetCurrentUserName + '" /IT /F';
+
+    Log('Creating scheduled task with params: ' + TaskParams);
+    Exec('schtasks.exe', TaskParams, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    if ResultCode <> 0 then
+      Log('Warning: Failed to create scheduled task. Error code: ' + IntToStr(ResultCode))
+    else
+      Log('Scheduled task created successfully');
+
     // Notify user about reboot requirement
     MsgBox('GatorSec has been installed successfully.' + #13#10 + #13#10 +
            'IMPORTANT: A system restart is required to complete the driver installation.' + #13#10 + #13#10 +

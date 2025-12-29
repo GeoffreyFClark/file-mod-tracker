@@ -18,7 +18,7 @@ const ActivityStatsCard: React.FC<ActivityStatsCardProps> = ({ mode }) => {
 
   const stats = useMemo((): StatItem[] => {
     if (mode === 'file') {
-      const counts = { Created: 0, Modified: 0, Deleted: 0, Renamed: 0 };
+      const counts = { Created: 0, Modified: 0, Deleted: 0, Renamed: 0, Write: 0, Unchanged: 0 };
 
       tableData.forEach(watcher => {
         watcher.files.forEach(file => {
@@ -28,6 +28,8 @@ const ActivityStatsCard: React.FC<ActivityStatsCardProps> = ({ mode }) => {
             else if (type.includes('modif')) counts.Modified++;
             else if (type.includes('delete')) counts.Deleted++;
             else if (type.includes('rename')) counts.Renamed++;
+            else if (type.includes('write')) counts.Write++;
+            else if (type.includes('unchanged')) counts.Unchanged++;
           });
         });
       });
@@ -37,6 +39,8 @@ const ActivityStatsCard: React.FC<ActivityStatsCardProps> = ({ mode }) => {
         { label: 'Modified', count: counts.Modified, color: 'bg-yellow-500' },
         { label: 'Deleted', count: counts.Deleted, color: 'bg-red-500' },
         { label: 'Renamed', count: counts.Renamed, color: 'bg-blue-500' },
+        { label: 'Write', count: counts.Write, color: 'bg-cyan-500' },
+        { label: 'Unchanged', count: counts.Unchanged, color: 'bg-gray-500' },
       ];
     } else {
       const counts = { Added: 0, Updated: 0, Removed: 0, Subkeys: 0 };

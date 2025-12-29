@@ -31,7 +31,9 @@ if %errorlevel% neq 0 (
     echo WARNING: pnputil returned error code %errorlevel% >> "%LOGFILE%"
 )
 
-:: Load the minifilter driver
+:: Note: Driver is set to manual start - GatorSec.exe will load it when needed
+
+:: Load the minifilter driver (for initial setup verification)
 echo Loading minifilter driver... >> "%LOGFILE%"
 fltmc load snFilter >> "%LOGFILE%" 2>&1
 if %errorlevel% neq 0 (
