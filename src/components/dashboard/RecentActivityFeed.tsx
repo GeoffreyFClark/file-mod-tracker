@@ -20,6 +20,8 @@ const getActionColor = (action: string): string => {
   if (actionLower.includes('delete') || actionLower.includes('removed')) return 'text-red-500';
   if (actionLower.includes('modif') || actionLower.includes('updated')) return 'text-yellow-500';
   if (actionLower.includes('rename')) return 'text-blue-500';
+  if (actionLower.includes('write')) return 'text-cyan-500';
+  if (actionLower.includes('unchanged')) return 'text-gray-500';
   if (actionLower.includes('subkey')) return 'text-purple-500';
   return 'text-gray-400';
 };

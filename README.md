@@ -2,7 +2,7 @@
 
 ## A Cybersecurity App for Monitoring Real-Time File Changes
 
-A comprehensive file integrity monitoring solution combining kernel-level instrumentation with an intuitive desktop interface. The application leverages a Windows minifilter driver ([fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs)) to intercept file system operations at the kernel level, while the Rust backend processes events, applies intelligent filtering, and manages monitoring policies. This architecture enables zero-overhead detection of malicious file modifications, ransomware activity, and unauthorized access patterns across the system.
+A file integrity monitoring solution combining kernel-level instrumentation with an intuitive desktop interface. Leverages a Windows minifilter driver ([fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs)) to intercept file system operations at the kernel level, while the Rust backend processes events, applies filtering rules, and manages monitoring policies. Enables detection of malicious file modifications, ransomware activity, and unauthorized access patterns.
 
 **Architecture:**
 - **Kernel Driver (snFilter.sys)**: Windows minifilter that hooks into the file system to capture I/O operations
@@ -18,6 +18,7 @@ A comprehensive file integrity monitoring solution combining kernel-level instru
 5. After reboot, the driver installs automatically
 6. Launch GatorSec from the desktop shortcut or Start Menu 
 
+![Home Dashboard](screenshots/dashboard_screenshot.png)
 ![File Monitoring Logs - All Events](screenshots/all_events_view.png)
 ![Add/Toggle Directories](screenshots/add_toggle_directories.png)
 ![Registry Monitoring Logs - Modifications](screenshots/registry_logs.png)
@@ -31,15 +32,12 @@ The dashboard provides an at-a-glance overview with separate tabs for File Syste
 - **Recent Activity Feed**: Scrollable list of recent events with color-coded actions
 - **Activity Stats**: Event counts by type (Created/Modified/Deleted/Renamed or Added/Updated/Removed)
 - **Monitored Paths**: Summary of configured directories or registry keys with status indicators
-- **System Status**: Real-time status for minifilter driver, file monitoring, and registry monitoring
-  - **Minifilter Driver**: Shows loaded/unloaded status with toggle switch to control the driver
-  - The driver automatically loads when GatorSec starts and can be manually toggled off if needed
+- **System Status**: Real-time status for minifilter driver (with toggle control), file monitoring, and registry monitoring
 
 ### Adding Directories to Monitor
 1. Navigate to **Settings** tab
-2. Click **Add Directory**
-3. Select folder to monitor
-4. Directory appears in monitored list and tracking begins immediately
+2. Click **Add Directory** and select folder to monitor
+3. Tracking begins immediately
 
 Alternatively, click the **Add** icon next to any file path in the Logs view to monitor its parent directory.
 
@@ -63,14 +61,13 @@ Process actions include:
 - **Terminate**: Kill the process (requires confirmation)
 
 ### Registry Monitoring
-The application monitors registry keys for security-relevant changes:
+Monitors registry keys for security-relevant changes:
 - **Value Changes**: Detects when registry values are added, modified, or deleted
-- **Subkey Changes**: Detects when new subkeys are created or removed under monitored keys
+- **Subkey Changes**: Detects creation/removal of immediate subkeys
 - **Key Path**: Full registry path (click to copy or open in Registry Editor)
 - **Operation Types**: ADDED, UPDATED, REMOVED, SUBKEY_ADDED, SUBKEY_REMOVED
-- **Timestamp**: When the change occurred
 
-**Note:** Registry monitoring tracks direct value changes and immediate subkeys of monitored keys. It does not recursively monitor all nested subkeys for performance reasons.
+**Note:** Monitors direct value changes and immediate subkeys only (not recursively nested subkeys).
 
 ### Session Logs
 File and registry changes are logged to:
@@ -85,9 +82,8 @@ File and registry changes are logged to:
 Check driver status: `fltmc filters | findstr snFilter`
 
 If not listed:
-- Verify test signing is enabled and reboot was completed after driver installation
-- The driver loads automatically when GatorSec starts - try launching the application
-- Use the toggle switch in the Dashboard's System Status panel to manually load the driver
+- Verify test signing is enabled and reboot was completed after installation
+- The driver loads automatically when GatorSec starts, or use the toggle in the Dashboard
 
 ### No File Events Appearing
 - Verify directory is enabled in Settings
@@ -133,7 +129,7 @@ After building GatorSec.exe, to create a distributable installer that handles mi
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\gatorsec.iss
 ```
 
-This creates `dist/GatorSec_Setup_x.x.x.exe`
+This creates `dist/GatorSec_Setup_x.x.x.exe` which automates the driver installation.
 
 ### Driver Installation (Manual Setup)
 
@@ -176,7 +172,7 @@ src-tauri\target\release\GatorSec.exe
 npm run tauri dev
 ```
 
-**Note:** Development mode will launch the app, but file monitoring will not work until the driver is installed using the steps above. The driver automatically loads when the application starts. You can also manually load it with `fltmc load snFilter` or use the toggle in the Dashboard.
+**Note:** File monitoring requires the driver to be installed first. The driver loads automatically when the application starts.
 
 ### Architecture Notes
 
