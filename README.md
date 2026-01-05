@@ -131,6 +131,8 @@ After building GatorSec.exe, to create a distributable installer that handles mi
 
 This creates `dist/GatorSec_Setup_x.x.x.exe` which automates the driver installation.
 
+![GatorSec_Setup](screenshots/GatorSec_Setup.png)
+
 ### Driver Installation (Manual Setup)
 
 The minifilter driver must be installed separately. This is a one-time process that requires a system reboot.
