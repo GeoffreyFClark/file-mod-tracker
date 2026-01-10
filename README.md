@@ -1,17 +1,17 @@
-# GatorSec File Integrity Monitoring (CyberSec App)
+# GatorSec: File Integrity Monitoring
 
-## A Cybersecurity App for Monitoring Real-Time File Changes
+## Cybersecurity Windows Desktop App to Monitor Real-Time File Changes
 
 A file integrity monitoring solution combining kernel-level instrumentation with an intuitive desktop interface. Leverages a Windows minifilter driver ([fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs)) to intercept file system operations at the kernel level, while the Rust backend processes events, applies filtering rules, and manages monitoring policies. Enables detection of malicious file modifications, ransomware activity, and unauthorized access patterns.
 
 **Architecture:**
 - **Kernel Driver (snFilter.sys)**: Windows minifilter that hooks into the file system to capture I/O operations
-- **Rust Backend**: Communicates with the driver via Windows Filter Manager API, processes events, applies configurable filtering rules, manages persistent settings
-- **React Frontend**: Desktop UI built with Tauri for real-time event visualization, directory management, process forensics, and session logging
+- **Rust Backend**: (`src-tauri/`) Communicates with the driver via Windows Filter Manager API, processes events, applies configurable filtering rules, manages persistent settings
+- **Tauri-React Frontend**: (`src/`) Desktop UI built with Tauri for real-time event visualization, directory management, process forensics, and session logging
 
 ## Installation
 
-1. Download the installer from [Releases](https://github.com/GeoffreyFClark/file-mod-tracker/releases)
+1. Download the installer from [Releases](https://github.com/GeoffreyFClark/GatorSec/releases)
 2. Run `GatorSec_Setup_x.x.x.exe` as Administrator
 3. Follow the installation wizard
 4. **Restart your computer** when prompted (required for driver installation)
@@ -25,86 +25,21 @@ A file integrity monitoring solution combining kernel-level instrumentation with
 ![Add/Toggle Registries](screenshots/registry_settings.png)
 ![Settings](screenshots/settings.png)
 
-## User Guide
+# Manually Building from Source
 
-### Dashboard (Home)
-The dashboard provides an at-a-glance overview with separate tabs for File System and Registry monitoring:
-- **Recent Activity Feed**: Scrollable list of recent events with color-coded actions
-- **Activity Stats**: Event counts by type (Created/Modified/Deleted/Renamed or Added/Updated/Removed)
-- **Monitored Paths**: Summary of configured directories or registry keys with status indicators
-- **System Status**: Real-time status for minifilter driver (with toggle control), file monitoring, and registry monitoring
-
-### Adding Directories to Monitor
-1. Navigate to **Settings** tab
-2. Click **Add Directory** and select folder to monitor
-3. Tracking begins immediately
-
-Alternatively, click the **Add** icon next to any file path in the Logs view to monitor its parent directory.
-
-### Managing Monitored Directories
-- **Enable/Disable**: Toggle monitoring without removing the directory
-- **Remove**: Click trash icon to stop monitoring and remove from list
-- Settings persist between sessions
-
-### Viewing File Changes (Logs)
-The Logs page table displays:
-- **Path**: Full file path (click to copy, open location, or add to monitoring)
-- **Status**: Created, Modified, Deleted, or Renamed
-- **Timestamp**: When the change occurred
-- **Process**: Which process made the change (click to open location, view properties, or terminate)
-- **Process Path**: Full path to the executable
-
-### Working with Processes
-Process actions include:
-- **Open Location**: Navigate to process executable in File Explorer
-- **View Properties**: Windows properties dialog for the executable
-- **Terminate**: Kill the process (requires confirmation)
-
-### Registry Monitoring
-Monitors registry keys for security-relevant changes:
-- **Value Changes**: Detects when registry values are added, modified, or deleted
-- **Subkey Changes**: Detects creation/removal of immediate subkeys
-- **Key Path**: Full registry path (click to copy or open in Registry Editor)
-- **Operation Types**: ADDED, UPDATED, REMOVED, SUBKEY_ADDED, SUBKEY_REMOVED
-
-**Note:** Monitors direct value changes and immediate subkeys only (not recursively nested subkeys).
-
-### Session Logs
-File and registry changes are logged to:
-- Location: `%APPDATA%\com.gatorsec.dev\logs\`
-- Format: `file_session_YYYY-MM-DD_HH-MM-SS.log` and `registry_session_YYYY-MM-DD_HH-MM-SS.log`
-- Content: JSON array of all changes during the session
-- Logs are cleared on app restart (session-based design)
-
-## Troubleshooting
-
-### Driver Not Loading
-Check driver status: `fltmc filters | findstr snFilter`
-
-If not listed:
-- Verify test signing is enabled and reboot was completed after installation
-- The driver loads automatically when GatorSec starts, or use the toggle in the Dashboard
-
-### No File Events Appearing
-- Verify directory is enabled in Settings
-- Check if process is in exclusion list (SearchProtocolHost.exe, SearchIndexer.exe are excluded by default)
-- Ensure you have read permissions for the monitored directory
-
-## Manually Building from Source
-
-### Prerequisites
+## Prerequisites
 - [Rust](https://rustup.rs/) (with MSVC toolchain for Windows)
 - [Node.js](https://nodejs.org/) (v16 or later)
 - [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with "Desktop development with C++"
 
 **Note:** The minifilter driver (`snFilter.sys`) is a kernel-mode Windows driver that can intercept file system operations. It is pre-compiled from [fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs) and included as a binary in `src-tauri/drivers/`. You do not need the Windows Driver Kit (WDK) to build this project.
 
-### Manual Build Steps
+## Manual Build Steps
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/GeoffreyFClark/file-mod-tracker
-cd file-mod-tracker
+git clone https://github.com/GeoffreyFClark/GatorSec
+cd GatorSec
 ```
 
 2. Install dependencies:
@@ -175,11 +110,3 @@ npm run tauri dev
 ```
 
 **Note:** File monitoring requires the driver to be installed first. The driver loads automatically when the application starts.
-
-### Architecture Notes
-
-- **Application Code**: Rust backend (`src-tauri/`) + React TypeScript frontend (`src/`)
-- **Minifilter Driver**: Pre-compiled binary from [fsfilter-rs](https://github.com/SubconsciousCompute/fsfilter-rs)
-- **Driver Lifecycle**: The driver is installed once (requires reboot), then loads/unloads on demand when GatorSec runs
-- **Communication**: Application connects to driver via `FilterConnectCommunicationPort` API
-- **Build Output**: Portable `.exe` or Inno Setup installer (in `installer/`)
